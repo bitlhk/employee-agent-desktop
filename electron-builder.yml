@@ -1,5 +1,5 @@
-appId: com.nousresearch.hermes
-productName: Hermes Agent
+appId: com.linggan.employeeagent.desktop
+productName: Employee Agent Desktop
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: hermes-agent
+  executableName: employee-agent-desktop
   target:
     - nsis
     - portable
@@ -46,14 +46,13 @@ linux:
     - snap
     - deb
     - rpm
-  maintainer: electronjs.org
-  vendor: Nous Research
+  maintainer: Linggan
+  vendor: Linggan
   category: Utility
-  synopsis: Self-improving AI assistant desktop app
+  synopsis: Private OpenClaw desktop client
   description: >-
-    Hermes Desktop is a native desktop app for installing, configuring, and chatting
-    with Hermes Agent — a self-improving AI assistant with tool use, multi-platform
-    messaging, and a closed learning loop.
+    Employee Agent Desktop is a native desktop app for connecting to a private
+    OpenClaw runtime through a managed desktop experience.
 appImage:
   artifactName: ${name}-${version}.${ext}
 deb:
@@ -68,5 +67,5 @@ rpm:
 npmRebuild: false
 publish:
   provider: github
-  owner: fathah
-  repo: hermes-desktop
+  owner: bitlhk
+  repo: employee-agent-desktop

@@ -210,6 +210,7 @@ const hermesAPI = {
     keyPath: string,
     remotePort: number,
     localPort: number,
+    apiKey?: string,
   ): Promise<boolean> =>
     ipcRenderer.invoke(
       "set-ssh-config",
@@ -219,6 +220,7 @@ const hermesAPI = {
       keyPath,
       remotePort,
       localPort,
+      apiKey,
     ),
 
   testRemoteConnection: (url: string, apiKey?: string): Promise<boolean> =>

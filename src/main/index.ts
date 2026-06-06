@@ -98,6 +98,7 @@ import {
   addCredentialPoolEntry,
   getConnectionConfig,
   getPublicConnectionConfig,
+  isOpenClawConnection,
   resolveConnectionApiKeyUpdate,
   setConnectionConfig,
   getPlatformEnabled,
@@ -656,6 +657,7 @@ function setupIPC(): void {
         const prev = await sshGetModelConfig(conn.ssh, profile);
         await sshSetModelConfig(conn.ssh, provider, model, baseUrl, profile);
         if (
+          !isOpenClawConnection(conn) &&
           (await sshGatewayStatus(conn.ssh)) &&
           (prev.provider !== provider ||
             prev.model !== model ||
@@ -752,11 +754,18 @@ function setupIPC(): void {
       keyPath: string,
       remotePort: number,
       localPort: number,
+      apiKey?: string,
     ) => {
       const current = getConnectionConfig();
       setConnectionConfig({
         ...current,
         mode: "ssh",
+        apiKey: resolveConnectionApiKeyUpdate(
+          current,
+          "ssh",
+          "",
+          apiKey,
+        ),
         ssh: { host, port, username, keyPath, remotePort, localPort },
       });
       return true;
@@ -791,12 +800,13 @@ function setupIPC(): void {
   ipcMain.handle("start-ssh-tunnel", async () => {
     const conn = getConnectionConfig();
     if (conn.mode !== "ssh") return false;
-    if (conn.ssh && !(await sshGatewayStatus(conn.ssh))) {
+    const openClawMode = isOpenClawConnection(conn);
+    if (!openClawMode && conn.ssh && !(await sshGatewayStatus(conn.ssh))) {
       await sshStartGateway(conn.ssh);
     }
     await startSshTunnel(conn.ssh);
     // Cache the remote API key so chat auth works through the tunnel
-    if (conn.ssh) {
+    if (!openClawMode && conn.ssh) {
       const key = await sshReadRemoteApiKey(conn.ssh);
       setSshRemoteApiKey(key);
     }
@@ -837,15 +847,18 @@ function setupIPC(): void {
       await ensureSshTunnelIfNeeded();
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh) {
-        const gatewayRunning = await sshGatewayStatus(conn.ssh);
+        const openClawMode = isOpenClawConnection(conn);
+        const gatewayRunning = openClawMode
+          ? true
+          : await sshGatewayStatus(conn.ssh);
         const tunnelHealthy = await isSshTunnelHealthy();
         if (!gatewayRunning || !tunnelHealthy) {
-          await sshStartGateway(conn.ssh);
+          if (!openClawMode) await sshStartGateway(conn.ssh);
           await startSshTunnel(conn.ssh);
         }
         // Always ensure the API key is cached — the key may not have been
         // read yet if the app-launch auto-start failed silently (#212).
-        if (!getRemoteAuthHeader().Authorization) {
+        if (!openClawMode && !getRemoteAuthHeader().Authorization) {
           const key = await sshReadRemoteApiKey(conn.ssh);
           setSshRemoteApiKey(key);
         }
@@ -1078,6 +1091,7 @@ function setupIPC(): void {
   });
   ipcMain.handle("gateway-status", () => {
     const conn = getConnectionConfig();
+    if (isOpenClawConnection(conn)) return Promise.resolve(true);
     if (conn.mode === "ssh" && conn.ssh) return sshGatewayStatus(conn.ssh);
     return isGatewayRunning();
   });
@@ -1965,12 +1979,15 @@ app.whenReady().then(() => {
   const conn = getConnectionConfig();
   if (conn.mode === "ssh" && conn.ssh.host) {
     (async () => {
-      if (!(await sshGatewayStatus(conn.ssh))) {
+      const openClawMode = isOpenClawConnection(conn);
+      if (!openClawMode && !(await sshGatewayStatus(conn.ssh))) {
         await sshStartGateway(conn.ssh);
       }
       await startSshTunnel(conn.ssh);
-      const key = await sshReadRemoteApiKey(conn.ssh);
-      setSshRemoteApiKey(key);
+      if (!openClawMode) {
+        const key = await sshReadRemoteApiKey(conn.ssh);
+        setSshRemoteApiKey(key);
+      }
     })().catch((err) => {
       console.error("[SSH TUNNEL] Failed to start on launch:", err);
     });

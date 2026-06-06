@@ -18,6 +18,19 @@ import {
 
 // ── Connection Config (local / remote / ssh) ─────────────
 
+export const OPENCLAW_DEFAULT_HOST =
+  process.env.EMPLOYEE_DESKTOP_OPENCLAW_HOST || "111.119.236.165";
+export const OPENCLAW_DEFAULT_SSH_USER =
+  process.env.EMPLOYEE_DESKTOP_OPENCLAW_SSH_USER || "ubuntu";
+export const OPENCLAW_DEFAULT_GATEWAY_PORT = Number(
+  process.env.EMPLOYEE_DESKTOP_OPENCLAW_GATEWAY_PORT || 18789,
+);
+export const OPENCLAW_DEFAULT_LOCAL_PORT = Number(
+  process.env.EMPLOYEE_DESKTOP_OPENCLAW_LOCAL_PORT || 18789,
+);
+export const OPENCLAW_DEFAULT_AGENT_ID =
+  process.env.EMPLOYEE_DESKTOP_OPENCLAW_AGENT_ID || "trial_lgc-ppstsl9ddr";
+
 export interface SshConnectionConfig {
   host: string;
   port: number;
@@ -76,14 +89,24 @@ export function getConnectionConfig(): ConnectionConfig {
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
     ssh: {
-      host: (ssh.host as string) || "",
+      host: (ssh.host as string) || OPENCLAW_DEFAULT_HOST,
       port: (ssh.port as number) || 22,
-      username: (ssh.username as string) || "",
+      username: (ssh.username as string) || OPENCLAW_DEFAULT_SSH_USER,
       keyPath: (ssh.keyPath as string) || "",
-      remotePort: (ssh.remotePort as number) || 8642,
-      localPort: (ssh.localPort as number) || 18642,
+      remotePort: (ssh.remotePort as number) || OPENCLAW_DEFAULT_GATEWAY_PORT,
+      localPort: (ssh.localPort as number) || OPENCLAW_DEFAULT_LOCAL_PORT,
     },
   };
+}
+
+export function isOpenClawConnection(config = getConnectionConfig()): boolean {
+  return config.mode === "ssh" && Number(config.ssh.remotePort) === 18789;
+}
+
+export function getOpenClawAgentId(): string {
+  const data = readDesktopConfig();
+  const configured = String(data.openClawAgentId || "").trim();
+  return configured || OPENCLAW_DEFAULT_AGENT_ID;
 }
 
 export function getPublicConnectionConfig(): PublicConnectionConfig {

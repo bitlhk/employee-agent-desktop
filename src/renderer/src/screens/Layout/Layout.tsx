@@ -236,7 +236,7 @@ function Layout({
           <span
             className="sidebar-logo"
             role="img"
-            aria-label="Hermes"
+            aria-label="Employee Agent Desktop"
             style={{
               maskImage: `url(${hermeslogo})`,
               WebkitMaskImage: `url(${hermeslogo})`,

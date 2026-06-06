@@ -38,11 +38,12 @@ function Welcome({
   const [remoteTesting, setRemoteTesting] = useState(false);
 
   // SSH state
-  const [sshHost, setSshHost] = useState("");
-  const [sshPort, setSshPort] = useState("");
-  const [sshUser, setSshUser] = useState("");
+  const [sshHost, setSshHost] = useState("111.119.236.165");
+  const [sshPort, setSshPort] = useState("22");
+  const [sshUser, setSshUser] = useState("ubuntu");
   const [sshKeyPath, setSshKeyPath] = useState("");
-  const [sshRemotePort, setSshRemotePort] = useState("");
+  const [sshRemotePort, setSshRemotePort] = useState("18789");
+  const [sshGatewayToken, setSshGatewayToken] = useState("");
   const [sshError, setSshError] = useState<string | null>(null);
   const [sshTesting, setSshTesting] = useState(false);
 
@@ -80,7 +81,7 @@ function Welcome({
       return;
     }
     const port = parseInt(sshPort, 10) || 22;
-    const remotePort = parseInt(sshRemotePort, 10) || 8642;
+    const remotePort = parseInt(sshRemotePort, 10) || 18789;
     setSshTesting(true);
     setSshError(null);
     try {
@@ -98,12 +99,13 @@ function Welcome({
           user,
           sshKeyPath.trim(),
           remotePort,
-          18642,
+          18789,
+          sshGatewayToken.trim(),
         );
         onRecheck();
       } else {
         setSshError(
-          "Could not connect via SSH or reach Hermes on the remote. Make sure:\n• SSH key is correct (or default ~/.ssh/id_rsa works)\n• Hermes gateway is running on the remote\n• The remote port is correct (default 8642)",
+          "Could not connect via SSH or reach OpenClaw on the remote. Make sure:\n• SSH key is correct (or default ~/.ssh/id_rsa works)\n• OpenClaw gateway is running on the remote\n• The remote port is correct (default 18789)",
         );
       }
     } catch (e) {
@@ -198,11 +200,11 @@ function Welcome({
       <div className="screen welcome-screen">
         <HermesLogo size={36} />
         <h1 className="welcome-title" style={{ fontSize: 22 }}>
-          Connect via SSH
+          Connect to OpenClaw
         </h1>
         <p className="welcome-subtitle" style={{ marginBottom: 24 }}>
-          Tunnel to a remote Hermes over SSH — no exposed ports or API keys
-          needed.
+          Tunnel to a remote OpenClaw gateway over SSH — no exposed ports
+          needed. Phase 0 connects to our preset OpenClaw gateway.
         </p>
 
         <div className="welcome-remote-card">
@@ -212,7 +214,7 @@ function Welcome({
               <input
                 type="text"
                 className="welcome-remote-input"
-                placeholder="192.168.1.100 or myserver.local"
+                placeholder="111.119.236.165"
                 value={sshHost}
                 onChange={(e) => setSshHost(e.target.value)}
                 autoFocus
@@ -236,7 +238,7 @@ function Welcome({
           <input
             type="text"
             className="welcome-remote-input"
-            placeholder="hermes"
+            placeholder="ubuntu"
             value={sshUser}
             onChange={(e) => setSshUser(e.target.value)}
           />
@@ -256,17 +258,29 @@ function Welcome({
           />
 
           <label className="welcome-remote-label" style={{ marginTop: 12 }}>
-            Remote Hermes Port{" "}
+            Remote OpenClaw Gateway Port{" "}
             <span style={{ fontWeight: 400, opacity: 0.6 }}>
-              (default 8642)
+              (default 18789)
             </span>
           </label>
           <input
             type="number"
             className="welcome-remote-input"
-            placeholder="8642"
+            placeholder="18789"
             value={sshRemotePort}
             onChange={(e) => setSshRemotePort(e.target.value)}
+          />
+
+          <label className="welcome-remote-label" style={{ marginTop: 12 }}>
+            Gateway Token{" "}
+            <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+          </label>
+          <input
+            type="password"
+            className="welcome-remote-input"
+            placeholder="Leave empty if the gateway does not require a token"
+            value={sshGatewayToken}
+            onChange={(e) => setSshGatewayToken(e.target.value)}
           />
 
           <div className="welcome-remote-row" style={{ marginTop: 16 }}>
@@ -283,7 +297,7 @@ function Welcome({
                 </>
               ) : (
                 <>
-                  Connect via SSH
+                  Connect to OpenClaw
                   <ArrowRight size={16} />
                 </>
               )}
@@ -376,14 +390,14 @@ function Welcome({
               onClick={() => setPanel("ssh")}
             >
               <KeyRound size={16} />
-              Connect via SSH
+              Connect to OpenClaw
             </button>{" "}
             <button
               className="btn btn-secondary welcome-recheck-btn "
               onClick={() => setPanel("remote")}
             >
               <Globe size={16} />
-              Connect to Remote Hermes
+              Connect to Remote OpenClaw
             </button>
           </div>
         </>
@@ -406,7 +420,7 @@ function Welcome({
             onClick={() => setPanel("ssh")}
           >
             <KeyRound size={16} />
-            Connect via SSH
+            Connect to OpenClaw
           </button>
 
           <button

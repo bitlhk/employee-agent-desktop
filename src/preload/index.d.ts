@@ -274,6 +274,7 @@ interface HermesAPI {
     keyPath: string,
     remotePort: number,
     localPort: number,
+    apiKey?: string,
   ) => Promise<boolean>;
   testRemoteConnection: (url: string, apiKey?: string) => Promise<boolean>;
   testSshConnection: (

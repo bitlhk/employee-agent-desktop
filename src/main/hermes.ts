@@ -23,7 +23,9 @@ import {
 import {
   getApiServerKey,
   getConnectionConfig,
+  getOpenClawAgentId,
   getModelConfig,
+  isOpenClawConnection,
   readEnv,
 } from "./config";
 import {
@@ -122,12 +124,19 @@ export function getRemoteAuthHeader(): Record<string, string> {
   if (conn.mode === "ssh") {
     if (_sshRemoteApiKey)
       return { Authorization: `Bearer ${_sshRemoteApiKey}` };
+    if (conn.apiKey) return { Authorization: `Bearer ${conn.apiKey}` };
     return {};
   }
   if (conn.mode === "remote" && conn.apiKey) {
     return { Authorization: `Bearer ${conn.apiKey}` };
   }
   return {};
+}
+
+function safeOpenClawSessionLabel(value: string): string {
+  return (value || `desk-${Date.now()}-${randomUUID()}`)
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 64);
 }
 
 function resolveRemoteApiKey(url: string, apiKey?: string): string {
@@ -444,6 +453,9 @@ function sendMessageViaApi(
 ): ChatHandle {
   const mc = getModelConfig(profile);
   const controller = new AbortController();
+  const conn = getConnectionConfig();
+  const openClawMode = isOpenClawConnection(conn);
+  const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
 
   // Build full conversation from history + current message (standard OpenAI format).
   // History items are kept text-only — attachments from prior turns live in
@@ -469,7 +481,7 @@ function sendMessageViaApi(
   if (ctxSystem) messages.unshift(ctxSystem);
 
   const body = JSON.stringify({
-    model: mc.model || "hermes-agent",
+    model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
     messages,
     stream: true,
     ...(_resumeSessionId ? { session_id: _resumeSessionId } : {}),
@@ -493,6 +505,14 @@ function sendMessageViaApi(
     "Content-Length": String(bodyBuf.length),
     ...getRemoteAuthHeader(),
   };
+  let sessionId =
+    _resumeSessionId || (("Authorization" in headers || openClawMode) ? `desk-${Date.now()}-${randomUUID()}` : "");
+  if (openClawMode) {
+    const sessionLabel = safeOpenClawSessionLabel(sessionId);
+    headers["x-openclaw-agent-id"] = openClawAgentId;
+    headers["x-openclaw-session-key"] =
+      `agent:${openClawAgentId}:main:${sessionLabel}`;
+  }
   // Local API server key (API_SERVER_KEY in the profile's .env /
   // config.yaml) only applies in local mode — in remote/SSH mode the
   // remote endpoint's own auth header (set above) is authoritative and
@@ -532,10 +552,7 @@ function sendMessageViaApi(
   // branch is always taken; the guard exists only so a misconfigured
   // local install degrades to the pre-fix (fingerprint) behaviour
   // rather than 403-looping.
-  const hasAuth = "Authorization" in headers;
-  let sessionId =
-    _resumeSessionId || (hasAuth ? `desk-${Date.now()}-${randomUUID()}` : "");
-  if (sessionId) {
+  if (sessionId && !openClawMode) {
     headers["X-Hermes-Session-Id"] = sessionId;
   }
   let hasContent = false;
@@ -563,7 +580,7 @@ function sendMessageViaApi(
   function probeRealError(): void {
     // When streaming returns empty, make a non-streaming request to surface the real error
     const probeBody = JSON.stringify({
-      model: mc.model || "hermes-agent",
+      model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
       messages: [{ role: "user", content: userContent }],
       stream: false,
     });
