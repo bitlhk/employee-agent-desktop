@@ -1557,6 +1557,29 @@ export async function sshReadRemoteApiKey(config: SshConfig): Promise<string> {
   }
 }
 
+export async function sshReadOpenClawGatewayToken(
+  config: SshConfig,
+): Promise<string> {
+  try {
+    const out = await sshExec(
+      config,
+      [
+        "for f in /home/ubuntu/employee-agent/.env /root/employee-agent/.env \"$HOME/employee-agent/.env\"; do",
+        "  if [ -f \"$f\" ]; then",
+        "    sed -n 's/^CLAW_GATEWAY_TOKEN=//p' \"$f\" | tail -n 1;",
+        "    exit 0;",
+        "  fi;",
+        "done",
+      ].join(" "),
+      undefined,
+      8000,
+    );
+    return out.trim().replace(/^['"]|['"]$/g, "");
+  } catch {
+    return "";
+  }
+}
+
 // ── Versions ──────────────────────────────────────────────────────────────────
 
 export async function sshGetHermesVersion(

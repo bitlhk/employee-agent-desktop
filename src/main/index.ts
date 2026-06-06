@@ -226,6 +226,7 @@ import {
   sshStartGateway,
   sshStopGateway,
   sshReadRemoteApiKey,
+  sshReadOpenClawGatewayToken,
   sshGetHermesVersion,
   sshReadLogs,
   sshGetPlatformEnabled,
@@ -240,6 +241,18 @@ import {
   sshRunDump,
   sshDiscoverMemoryProviders,
 } from "./ssh-remote";
+
+async function hydrateSshAuthHeaderForConnection(): Promise<void> {
+  const conn = getConnectionConfig();
+  if (conn.mode !== "ssh" || !conn.ssh || getRemoteAuthHeader().Authorization) {
+    return;
+  }
+  const openClawMode = isOpenClawConnection(conn);
+  const key = openClawMode
+    ? await sshReadOpenClawGatewayToken(conn.ssh)
+    : await sshReadRemoteApiKey(conn.ssh);
+  if (key) setSshRemoteApiKey(key);
+}
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);
@@ -805,11 +818,7 @@ function setupIPC(): void {
       await sshStartGateway(conn.ssh);
     }
     await startSshTunnel(conn.ssh);
-    // Cache the remote API key so chat auth works through the tunnel
-    if (!openClawMode && conn.ssh) {
-      const key = await sshReadRemoteApiKey(conn.ssh);
-      setSshRemoteApiKey(key);
-    }
+    await hydrateSshAuthHeaderForConnection();
     return true;
   });
 
@@ -856,12 +865,9 @@ function setupIPC(): void {
           if (!openClawMode) await sshStartGateway(conn.ssh);
           await startSshTunnel(conn.ssh);
         }
-        // Always ensure the API key is cached — the key may not have been
-        // read yet if the app-launch auto-start failed silently (#212).
-        if (!openClawMode && !getRemoteAuthHeader().Authorization) {
-          const key = await sshReadRemoteApiKey(conn.ssh);
-          setSshRemoteApiKey(key);
-        }
+        // Always ensure the auth token is cached — it may not have been read
+        // yet if the app-launch auto-start failed silently (#212).
+        await hydrateSshAuthHeaderForConnection();
       }
 
       if (currentChatAbort) {
@@ -1984,10 +1990,7 @@ app.whenReady().then(() => {
         await sshStartGateway(conn.ssh);
       }
       await startSshTunnel(conn.ssh);
-      if (!openClawMode) {
-        const key = await sshReadRemoteApiKey(conn.ssh);
-        setSshRemoteApiKey(key);
-      }
+      await hydrateSshAuthHeaderForConnection();
     })().catch((err) => {
       console.error("[SSH TUNNEL] Failed to start on launch:", err);
     });

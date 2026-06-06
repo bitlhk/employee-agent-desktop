@@ -139,6 +139,26 @@ function safeOpenClawSessionLabel(value: string): string {
     .slice(0, 64);
 }
 
+function extractOpenClawContentDelta(parsed: unknown): string {
+  if (!parsed || typeof parsed !== "object") return "";
+  const obj = parsed as Record<string, unknown>;
+  const data =
+    obj.data && typeof obj.data === "object"
+      ? (obj.data as Record<string, unknown>)
+      : undefined;
+  const delta = obj.delta ?? data?.delta;
+  if (typeof delta === "string") return delta;
+  const content = obj.content ?? data?.content ?? obj.text ?? data?.text;
+  if (typeof content === "string") return content;
+  if (
+    obj.type === "response.output_text.delta" &&
+    typeof obj.delta === "string"
+  ) {
+    return obj.delta;
+  }
+  return "";
+}
+
 function resolveRemoteApiKey(url: string, apiKey?: string): string {
   if (apiKey !== undefined) return apiKey;
 
@@ -706,6 +726,12 @@ function sendMessageViaApi(
         } else {
           hasContent = true;
           cb.onChunk(delta.content);
+        }
+      } else if (openClawMode) {
+        const openClawDelta = extractOpenClawContentDelta(parsed);
+        if (openClawDelta) {
+          hasContent = true;
+          cb.onChunk(openClawDelta);
         }
       }
     } catch {
