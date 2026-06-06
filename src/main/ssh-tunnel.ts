@@ -48,6 +48,28 @@ function checkTunnelHealth(port: number, timeoutMs = 3000): Promise<boolean> {
   });
 }
 
+function checkPortOpen(port: number, timeoutMs = 3000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.setTimeout(timeoutMs);
+    socket.on("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function usesOpenClawGateway(config: SshConfig): boolean {
+  return Number(config.remotePort) === 18789;
+}
+
 async function waitForHealth(port: number, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() <= deadline) {
@@ -58,9 +80,11 @@ async function waitForHealth(port: number, timeoutMs: number): Promise<void> {
 }
 
 export async function isSshTunnelHealthy(): Promise<boolean> {
-  return activeConfig !== null && tunnelRunning
-    ? checkTunnelHealth(activeConfig.localPort)
-    : false;
+  if (!activeConfig || !tunnelRunning) return false;
+  if (usesOpenClawGateway(activeConfig)) {
+    return checkPortOpen(activeConfig.localPort);
+  }
+  return checkTunnelHealth(activeConfig.localPort);
 }
 
 function findFreePort(preferred: number): Promise<number> {
@@ -129,7 +153,14 @@ function buildSshArgs(config: SshConfig, localPort: number): string[] {
 export async function startSshTunnel(config: SshConfig): Promise<void> {
   stopSshTunnel();
 
-  const localPort = await findFreePort(config.localPort || 18642);
+  const preferredPort = config.localPort || 18642;
+  if (usesOpenClawGateway(config) && (await checkPortOpen(preferredPort))) {
+    activeConfig = { ...config, localPort: preferredPort };
+    tunnelRunning = true;
+    return;
+  }
+
+  const localPort = await findFreePort(preferredPort);
   activeConfig = { ...config, localPort };
   tunnelRunning = false;
 
@@ -144,7 +175,10 @@ export async function startSshTunnel(config: SshConfig): Promise<void> {
     // With ControlMaster=auto, the spawned SSH process exits immediately
     // after handing off to the master. The tunnel may still be alive via
     // the mux master, so check health before declaring it dead.
-    checkTunnelHealth(localPort, 2000).then((healthy) => {
+    const healthCheck = usesOpenClawGateway(config)
+      ? checkPortOpen(localPort, 2000)
+      : checkTunnelHealth(localPort, 2000);
+    healthCheck.then((healthy) => {
       if (!healthy) {
         tunnelRunning = false;
         activeConfig = null;
@@ -154,7 +188,10 @@ export async function startSshTunnel(config: SshConfig): Promise<void> {
 
   tunnelProcess.on("error", () => {
     tunnelProcess = null;
-    checkTunnelHealth(localPort, 2000).then((healthy) => {
+    const healthCheck = usesOpenClawGateway(config)
+      ? checkPortOpen(localPort, 2000)
+      : checkTunnelHealth(localPort, 2000);
+    healthCheck.then((healthy) => {
       if (!healthy) {
         tunnelRunning = false;
         activeConfig = null;
@@ -165,7 +202,9 @@ export async function startSshTunnel(config: SshConfig): Promise<void> {
   try {
     await waitForPort(localPort, 12000);
     tunnelRunning = true;
-    await waitForHealth(localPort, 20000);
+    if (!usesOpenClawGateway(config)) {
+      await waitForHealth(localPort, 20000);
+    }
   } catch (err) {
     stopSshTunnel();
     throw err;
@@ -231,6 +270,12 @@ export function testSshConnection(config: SshConfig): Promise<boolean> {
                 return;
               }
               setTimeout(poll, 400);
+              return;
+            }
+
+            if (usesOpenClawGateway(config)) {
+              clearTimeout(timeout);
+              finish(true);
               return;
             }
 
