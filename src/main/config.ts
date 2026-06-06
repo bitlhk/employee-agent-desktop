@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { randomBytes } from "crypto";
-import { join } from "path";
+import { dirname, join } from "path";
+import { homedir } from "os";
 import { HERMES_HOME, expectedEnvKeyForModel } from "./installer";
 import {
   escapeRegex,
@@ -61,7 +62,10 @@ export interface PublicConnectionConfig {
 // Lazy getter — avoids circular dependency with installer.ts
 // (HERMES_HOME may not be assigned yet when this module first loads)
 function desktopConfigFile(): string {
-  return join(HERMES_HOME, "desktop.json");
+  const configHome =
+    process.env.EMPLOYEE_DESKTOP_CONFIG_HOME ||
+    join(homedir(), ".employee-agent-desktop");
+  return join(configHome, "desktop.json");
 }
 
 export function readDesktopConfig(): Record<string, unknown> {
@@ -75,8 +79,9 @@ export function readDesktopConfig(): Record<string, unknown> {
 }
 
 export function writeDesktopConfig(data: Record<string, unknown>): void {
-  if (!existsSync(HERMES_HOME)) {
-    mkdirSync(HERMES_HOME, { recursive: true });
+  const configDir = dirname(desktopConfigFile());
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
   }
   writeFileSync(desktopConfigFile(), JSON.stringify(data, null, 2), "utf-8");
 }
@@ -85,7 +90,7 @@ export function getConnectionConfig(): ConnectionConfig {
   const data = readDesktopConfig();
   const ssh = (data.sshConfig as Partial<SshConnectionConfig>) ?? {};
   return {
-    mode: (data.connectionMode as "local" | "remote" | "ssh") || "local",
+    mode: (data.connectionMode as "local" | "remote" | "ssh") || "ssh",
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
     ssh: {
@@ -122,6 +127,7 @@ export function getPublicConnectionConfig(): PublicConnectionConfig {
 
 export function setConnectionConfig(config: ConnectionConfig): void {
   const data = readDesktopConfig();
+  data.employeeAgentDesktop = true;
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
   data.remoteApiKey = config.apiKey;
