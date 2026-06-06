@@ -760,6 +760,12 @@ function sendMessageViaApi(
           errBody += d.toString();
         });
         res.on("end", () => {
+          if (openClawMode && res.statusCode === 401) {
+            finish(
+              "OpenClaw Gateway unauthorized. Fill Gateway Token with CLAW_GATEWAY_TOKEN, or set Private Key Path so the app can read it over SSH.",
+            );
+            return;
+          }
           try {
             const err = JSON.parse(errBody);
             finish(err.error?.message || `API error ${res.statusCode}`);

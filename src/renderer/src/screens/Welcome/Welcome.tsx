@@ -278,7 +278,7 @@ function Welcome({
           <input
             type="password"
             className="welcome-remote-input"
-            placeholder="Leave empty if the gateway does not require a token"
+            placeholder="OpenClaw CLAW_GATEWAY_TOKEN, or leave empty when key path can read it"
             value={sshGatewayToken}
             onChange={(e) => setSshGatewayToken(e.target.value)}
           />
