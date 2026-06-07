@@ -19,6 +19,7 @@ import type { Attachment } from "../../../../shared/attachments";
 import type { ChatMessage, UsageState } from "./types";
 import type { ContextUsage } from "./ContextGauge";
 import { contextWindowForModel } from "./contextWindows";
+import { tempId } from "./tempIds";
 
 interface QueuedMessage {
   text: string;
@@ -192,7 +193,7 @@ function Chat({
     (content: string) => {
       setMessages((prev) => [
         ...prev,
-        { id: `agent-local-${Date.now()}`, role: "agent", content },
+        { id: tempId("agent-local"), role: "agent", content },
       ]);
     },
     [setMessages],

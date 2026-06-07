@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ChatInputHandle } from "../ChatInput";
 import type { Attachment, ChatMessage, ChatBubbleMessage } from "../types";
+import { tempId } from "../tempIds";
 
 function hasContent(msg: ChatMessage): msg is ChatBubbleMessage {
   return (
@@ -71,7 +72,7 @@ export function useChatActions({
       setMessages((prev) => [
         ...prev,
         {
-          id: `${idPrefix}-${Date.now()}`,
+          id: tempId(idPrefix),
           role: "user",
           content,
           ...(attachments && attachments.length > 0 ? { attachments } : {}),

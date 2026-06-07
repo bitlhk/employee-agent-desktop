@@ -1,5 +1,6 @@
 import type { ChatToolEvent } from "../../../../shared/chat-stream";
 import type { ChatMessage, ToolCallMessage, ToolResultMessage } from "./types";
+import { tempId } from "./tempIds";
 
 const TOOL_PROGRESS_EMOJI_RE = /^(\p{Extended_Pictographic}|\p{Emoji_Presentation})\s+(.+)$/u;
 
@@ -247,7 +248,7 @@ export function upsertLiveToolEvent(
   const callId =
     event.hasStableCallId === false
       ? `${syntheticPrefix(event)}${activeTurnSyntheticCount(messages, event) + 1}`
-      : event.callId || `${event.name}-${Date.now()}`;
+      : event.callId || tempId(event.name || "tool");
   const insertAt = liveToolInsertIndex(messages);
   const row: ToolCallMessage = {
     id: `tool-call-${callId}`,

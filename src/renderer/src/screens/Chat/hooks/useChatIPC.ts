@@ -10,6 +10,7 @@ import {
   upsertLiveToolEvent,
 } from "../liveToolEvents";
 import { upsertLiveReasoningChunk } from "../liveReasoningEvents";
+import { tempId } from "../tempIds";
 
 interface UseChatIPCArgs {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -33,10 +34,12 @@ export function useChatIPC({
   setUsage,
 }: UseChatIPCArgs): void {
   const reasoningSegmentClosedRef = useRef(false);
+  const reasoningIdSeqRef = useRef(0);
 
   useEffect(() => {
     const cleanupChunk = window.hermesAPI.onChatChunk((chunk) => {
       setMessages((prev) => {
+        if (!chunk) return prev;
         const last = prev[prev.length - 1];
         if (
           last &&
@@ -44,6 +47,12 @@ export function useChatIPC({
           "content" in last &&
           typeof last.content === "string"
         ) {
+          if (chunk === last.content || last.content.startsWith(chunk)) {
+            return prev;
+          }
+          if (chunk.startsWith(last.content)) {
+            return [...prev.slice(0, -1), { ...last, content: chunk }];
+          }
           return [
             ...prev.slice(0, -1),
             { ...last, content: last.content + chunk },
@@ -53,7 +62,7 @@ export function useChatIPC({
         if (!chunk || !chunk.trim()) return prev;
         return [
           ...prev,
-          { id: `agent-${Date.now()}`, role: "agent", content: chunk },
+          { id: tempId("agent"), role: "agent", content: chunk },
         ];
       });
     });
@@ -65,8 +74,14 @@ export function useChatIPC({
       if (!chunk) return;
       const forceNewSegment = reasoningSegmentClosedRef.current;
       reasoningSegmentClosedRef.current = false;
+      reasoningIdSeqRef.current += 1;
       setMessages((prev) =>
-        upsertLiveReasoningChunk(prev, chunk, Date.now(), forceNewSegment),
+        upsertLiveReasoningChunk(
+          prev,
+          chunk,
+          reasoningIdSeqRef.current,
+          forceNewSegment,
+        ),
       );
     });
 
@@ -107,7 +122,7 @@ export function useChatIPC({
       setMessages((prev) => [
         ...prev,
         {
-          id: `error-${Date.now()}`,
+          id: tempId("error"),
           role: "agent",
           content: `Error: ${error}`,
         },
