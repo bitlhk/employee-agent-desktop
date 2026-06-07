@@ -765,6 +765,7 @@ function sendMessageViaApi(
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
   const openAiToolCallState = new Map<string, OpenAiToolCallStreamState>();
   let openClawSseDebugCount = 0;
+  let openClawInterestingDebugCount = 0;
 
   // Build full conversation from history + current message (standard OpenAI format).
   // OpenClaw direct mode already keeps conversation state by
@@ -1194,6 +1195,28 @@ function sendMessageViaApi(
             eventType: eventType || "(none)",
             ...openClawSseDebugSummary(dataLine),
           });
+        }
+        if (openClawMode && openClawInterestingDebugCount < 20) {
+          const summary = openClawSseDebugSummary(dataLine);
+          const isPlainContentDelta =
+            !eventType &&
+            Array.isArray(summary.deltaKeys) &&
+            summary.deltaKeys.length === 1 &&
+            summary.deltaKeys[0] === "content" &&
+            !summary.finishReason &&
+            !summary.hasToolCalls;
+          const isInitialRoleDelta =
+            !eventType &&
+            Array.isArray(summary.deltaKeys) &&
+            summary.deltaKeys.length === 1 &&
+            summary.deltaKeys[0] === "role";
+          if (!isPlainContentDelta && !isInitialRoleDelta) {
+            openClawInterestingDebugCount += 1;
+            console.log("[openclaw] interesting sse", {
+              eventType: eventType || "(none)",
+              ...summary,
+            });
+          }
         }
         if (eventType) {
           // Custom event (e.g. hermes.tool.progress / tool_call). Unknown
