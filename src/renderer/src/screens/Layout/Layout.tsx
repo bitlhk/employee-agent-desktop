@@ -109,6 +109,7 @@ function Layout({
   // Remote-only mode — SSH tunnel has full access; only pure HTTP remote mode restricts screens
   const [remoteMode, setRemoteMode] = useState(false);
   const [enterpriseMode, setEnterpriseMode] = useState(false);
+  const [enterpriseAgentId, setEnterpriseAgentId] = useState("");
 
   const paneStyle = (target: View): React.CSSProperties => ({
     display: view === target ? "flex" : "none",
@@ -126,7 +127,9 @@ function Layout({
   useEffect(() => {
     void window.hermesAPI.isRemoteOnlyMode().then(setRemoteMode);
     void window.hermesAPI.getConnectionConfig().then((config) => {
-      setEnterpriseMode(config.mode === "remote" && config.openClawDirect);
+      const isEnterprise = config.mode === "remote" && config.openClawDirect;
+      setEnterpriseMode(isEnterprise);
+      setEnterpriseAgentId(isEnterprise ? config.openClawAgentId || "" : "");
     });
   }, [view]);
 
@@ -314,6 +317,9 @@ function Layout({
             activeProfile={activeProfile}
             onSwitch={handleSelectProfile}
             onManage={() => goTo(enterpriseMode ? "settings" : "agents")}
+            enterpriseMode={enterpriseMode}
+            enterpriseAgentId={enterpriseAgentId}
+            enterpriseConnected={enterpriseMode}
           />
         </div>
       </aside>

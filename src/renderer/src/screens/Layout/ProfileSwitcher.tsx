@@ -20,6 +20,9 @@ interface ProfileSwitcherProps {
   onManage: () => void;
   /** Render as an icon-only sidebar footer affordance. */
   compact?: boolean;
+  enterpriseMode?: boolean;
+  enterpriseAgentId?: string;
+  enterpriseConnected?: boolean;
 }
 
 /**
@@ -31,6 +34,9 @@ export default function ProfileSwitcher({
   onSwitch,
   onManage,
   compact = false,
+  enterpriseMode = false,
+  enterpriseAgentId,
+  enterpriseConnected = false,
 }: ProfileSwitcherProps): React.JSX.Element {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -82,6 +88,12 @@ export default function ProfileSwitcher({
   const activeRunning = profiles.find(
     (p) => p.name === activeProfile,
   )?.gatewayRunning;
+  const enterpriseShortAgentId = enterpriseAgentId
+    ? enterpriseAgentId.replace(/^trial_lgc-/, "")
+    : "";
+  const enterpriseSubtitle = enterpriseConnected
+    ? `已连接${enterpriseShortAgentId ? ` · ${enterpriseShortAgentId}` : ""}`
+    : "未连接";
 
   async function handleSelect(name: string): Promise<void> {
     setOpen(false);
@@ -99,7 +111,42 @@ export default function ProfileSwitcher({
       className={`profile-switcher ${compact ? "compact" : ""}`}
       ref={rootRef}
     >
-      {open && (
+      {enterpriseMode && open && (
+        <div
+          className="profile-menu profile-menu-enterprise"
+          role="menu"
+          title={enterpriseAgentId || undefined}
+        >
+          <div className="profile-menu-list">
+            <div className="profile-menu-item profile-menu-item-static">
+              <Bot
+                size={16}
+                className={`profile-icon ${
+                  enterpriseConnected ? "running" : ""
+                }`}
+                aria-hidden
+              />
+              <span className="profile-menu-info">
+                <span className="profile-menu-name">Employee Agent</span>
+                <span className="profile-menu-meta">{enterpriseSubtitle}</span>
+              </span>
+            </div>
+          </div>
+          <button
+            className="profile-menu-manage"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onManage();
+            }}
+          >
+            <Settings size={14} />
+            连接设置
+          </button>
+        </div>
+      )}
+
+      {!enterpriseMode && open && (
         <div className="profile-menu" role="menu">
           <div className="profile-menu-list">
             {profiles.map((p) => {
@@ -158,16 +205,38 @@ export default function ProfileSwitcher({
       <button
         className={`profile-switcher-trigger ${open ? "open" : ""}`}
         onClick={() => setOpen((o) => !o)}
-        title={`${t("agents.switchProfile")}: ${label}`}
+        title={
+          enterpriseMode
+            ? enterpriseAgentId || enterpriseSubtitle
+            : `${t("agents.switchProfile")}: ${label}`
+        }
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Bot
           size={16}
-          className={`profile-icon ${activeRunning ? "running" : ""}`}
+          className={`profile-icon ${
+            enterpriseMode
+              ? enterpriseConnected
+                ? "running"
+                : ""
+              : activeRunning
+                ? "running"
+                : ""
+          }`}
           aria-hidden
         />
-        {!compact && <span className="profile-switcher-name">{label}</span>}
+        {!compact &&
+          (enterpriseMode ? (
+            <span className="profile-switcher-copy">
+              <span className="profile-switcher-title">Employee Agent</span>
+              <span className="profile-switcher-subtitle">
+                {enterpriseSubtitle}
+              </span>
+            </span>
+          ) : (
+            <span className="profile-switcher-name">{label}</span>
+          ))}
         {!compact && (
           <ChevronDown size={14} className="profile-switcher-chevron" />
         )}
