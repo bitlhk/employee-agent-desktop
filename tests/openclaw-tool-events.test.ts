@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractOpenClawToolEvent } from "../src/main/hermes";
+import {
+  extractOpenAiToolCallEvents,
+  extractOpenClawToolEvent,
+} from "../src/main/hermes";
 
 describe("extractOpenClawToolEvent", () => {
   it("normalizes OpenClaw tool start events", () => {
@@ -78,5 +81,89 @@ describe("extractOpenClawToolEvent", () => {
       name: "search_web",
       status: "running",
     });
+  });
+});
+
+describe("extractOpenAiToolCallEvents", () => {
+  it("normalizes OpenAI-compatible streaming tool call deltas", () => {
+    const state = new Map();
+
+    const first = extractOpenAiToolCallEvents(
+      {
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call-1",
+                  function: {
+                    name: "managed_browser_open",
+                    arguments: '{"url":',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      state,
+    );
+
+    expect(first).toEqual([
+      {
+        callId: "call-1",
+        hasStableCallId: true,
+        name: "managed_browser_open",
+        status: "running",
+        label: "managed_browser_open",
+        preview: '{"url":',
+      },
+    ]);
+
+    const second = extractOpenAiToolCallEvents(
+      {
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  function: {
+                    arguments: '"https://example.com"}',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      state,
+    );
+
+    expect(second[0]).toMatchObject({
+      callId: "call-1",
+      name: "managed_browser_open",
+      status: "running",
+      preview: '{"url":"https://example.com"}',
+    });
+
+    const done = extractOpenAiToolCallEvents(
+      {
+        choices: [{ delta: {}, finish_reason: "tool_calls" }],
+      },
+      state,
+    );
+
+    expect(done).toEqual([
+      {
+        callId: "call-1",
+        hasStableCallId: true,
+        name: "managed_browser_open",
+        status: "completed",
+        label: "managed_browser_open",
+        preview: '{"url":"https://example.com"}',
+      },
+    ]);
   });
 });

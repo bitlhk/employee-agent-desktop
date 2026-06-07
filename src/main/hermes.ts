@@ -276,6 +276,89 @@ export function extractOpenClawToolEvent(
   };
 }
 
+interface OpenAiToolCallStreamState {
+  id?: string;
+  name?: string;
+  args: string;
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function normalizeToolCallArgs(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
+}
+
+export function extractOpenAiToolCallEvents(
+  parsed: unknown,
+  toolCallState: Map<string, OpenAiToolCallStreamState>,
+): ChatToolEvent[] {
+  const obj = recordValue(parsed);
+  const choice = recordValue(
+    Array.isArray(obj?.choices) ? obj.choices[0] : undefined,
+  );
+  const delta = recordValue(choice?.delta);
+  const toolCalls = delta?.tool_calls;
+  const events: ChatToolEvent[] = [];
+
+  if (Array.isArray(toolCalls)) {
+    for (const rawCall of toolCalls) {
+      const call = recordValue(rawCall);
+      if (!call) continue;
+      const index =
+        typeof call.index === "number" ? String(call.index) : undefined;
+      const explicitId = stringValue(call.id);
+      // OpenAI-compatible streams usually send the call id only on the first
+      // delta and continue later argument chunks by index. Use index as the
+      // aggregation key while preserving the real id for rendering.
+      const key = index || explicitId || String(toolCallState.size);
+      const current = toolCallState.get(key) || { args: "" };
+      const fn = recordValue(call.function);
+      const name = stringValue(fn?.name) || current.name || "tool";
+      const argsDelta = normalizeToolCallArgs(fn?.arguments);
+      const next: OpenAiToolCallStreamState = {
+        id: explicitId || current.id,
+        name,
+        args: current.args + argsDelta,
+      };
+      toolCallState.set(key, next);
+      events.push({
+        callId: next.id || `openai-tool:${key}`,
+        hasStableCallId: !!next.id,
+        name,
+        status: "running",
+        label: name,
+        preview: next.args || name,
+      });
+    }
+  }
+
+  const finishReason = stringValue(choice?.finish_reason);
+  if (finishReason === "tool_calls" || finishReason === "function_call") {
+    for (const [key, state] of toolCallState.entries()) {
+      events.push({
+        callId: state.id || `openai-tool:${key}`,
+        hasStableCallId: !!state.id,
+        name: state.name || "tool",
+        status: "completed",
+        label: state.name || "tool",
+        preview: state.args || state.name || "tool",
+      });
+    }
+  }
+
+  return events;
+}
+
 function resolveRemoteApiKey(url: string, apiKey?: string): string {
   if (apiKey !== undefined) return apiKey;
 
@@ -594,6 +677,7 @@ function sendMessageViaApi(
   const mc = openClawMode ? undefined : getModelConfig(profile);
   const controller = new AbortController();
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
+  const openAiToolCallState = new Map<string, OpenAiToolCallStreamState>();
 
   // Build full conversation from history + current message (standard OpenAI format).
   // OpenClaw direct mode already keeps conversation state by
@@ -836,10 +920,34 @@ function sendMessageViaApi(
 
       const toolEvent = openClawMode ? extractOpenClawToolEvent(parsed) : null;
       if (toolEvent) {
+        console.log("[openclaw] tool event", {
+          name: toolEvent.name,
+          status: toolEvent.status,
+          stable: toolEvent.hasStableCallId !== false,
+        });
         if (cb.onToolEvent) {
           cb.onToolEvent(toolEvent);
         } else if (cb.onToolProgress) {
           cb.onToolProgress(chatToolProgressLabel(toolEvent));
+        }
+        return false;
+      }
+
+      const openAiToolEvents = openClawMode
+        ? extractOpenAiToolCallEvents(parsed, openAiToolCallState)
+        : [];
+      if (openAiToolEvents.length > 0) {
+        for (const event of openAiToolEvents) {
+          console.log("[openclaw] openai tool event", {
+            name: event.name,
+            status: event.status,
+            stable: event.hasStableCallId !== false,
+          });
+          if (cb.onToolEvent) {
+            cb.onToolEvent(event);
+          } else if (cb.onToolProgress) {
+            cb.onToolProgress(chatToolProgressLabel(event));
+          }
         }
         return false;
       }
