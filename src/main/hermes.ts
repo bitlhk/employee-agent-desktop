@@ -47,6 +47,11 @@ import { readModels } from "./models";
 import { HIDDEN_SUBPROCESS_OPTIONS } from "./process-options";
 import { type Attachment, escapeXmlAttr } from "../shared/attachments";
 import { URL_KEY_MAP, OPENAI_COMPAT_PROVIDERS } from "../shared/url-key-map";
+import {
+  chatToolEventFromPayload,
+  chatToolProgressLabel,
+  type ChatToolEvent,
+} from "../shared/chat-stream";
 
 /**
  * Resolve which profile a gateway call targets. An explicit profile always
@@ -157,6 +162,118 @@ function extractOpenClawContentDelta(parsed: unknown): string {
     return obj.delta;
   }
   return "";
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function openClawToolResultText(data: Record<string, unknown>): string {
+  const direct =
+    stringValue(data.result_text) ||
+    stringValue(data.resultText) ||
+    stringValue(data.output) ||
+    stringValue(data.content) ||
+    stringValue(data.text) ||
+    stringValue(data.summary);
+  if (direct) return direct;
+  const result = data.result;
+  if (typeof result === "string") return result;
+  if (result == null) return "";
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return "";
+  }
+}
+
+export function extractOpenClawToolEvent(
+  parsed: unknown,
+): ChatToolEvent | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+  const data =
+    obj.data && typeof obj.data === "object"
+      ? (obj.data as Record<string, unknown>)
+      : obj.payload && typeof obj.payload === "object"
+        ? (obj.payload as Record<string, unknown>)
+        : obj;
+
+  const rawType = stringValue(obj.type) || stringValue(obj.event);
+  const stream = stringValue(obj.stream) || stringValue(data.stream);
+  const rawPhase =
+    stringValue(data.phase) ||
+    stringValue(data.status) ||
+    stringValue(obj.phase) ||
+    stringValue(obj.status);
+  const lowerType = rawType.toLowerCase();
+  const lowerPhase = rawPhase.toLowerCase();
+  const looksLikeTool =
+    stream === "tool" ||
+    lowerType.includes("tool") ||
+    !!data.tool ||
+    !!data.tool_name ||
+    !!data.toolName;
+  if (!looksLikeTool) return null;
+
+  const isStart =
+    lowerType === "tool.start" ||
+    lowerType === "tool.started" ||
+    lowerType === "tool_call" ||
+    lowerType === "tool.call" ||
+    lowerPhase === "start" ||
+    lowerPhase === "started" ||
+    lowerPhase === "running";
+  const isComplete =
+    lowerType === "tool.complete" ||
+    lowerType === "tool.completed" ||
+    lowerType === "tool.result" ||
+    lowerType === "tool_result" ||
+    lowerPhase === "complete" ||
+    lowerPhase === "completed" ||
+    lowerPhase === "success" ||
+    lowerPhase === "failed" ||
+    lowerPhase === "error";
+  if (!isStart && !isComplete) return null;
+
+  const name =
+    stringValue(data.name) ||
+    stringValue(data.tool) ||
+    stringValue(data.tool_name) ||
+    stringValue(data.toolName) ||
+    "tool";
+  const explicitCallId =
+    stringValue(data.tool_id) ||
+    stringValue(data.toolCallId) ||
+    stringValue(data.tool_call_id) ||
+    stringValue(data.callId) ||
+    stringValue(data.id);
+  const callId =
+    explicitCallId ||
+    `${name}:${stringValue(obj.session_id) || stringValue(data.session_id)}`;
+  const preview =
+    stringValue(data.preview) ||
+    stringValue(data.args_text) ||
+    stringValue(data.arguments) ||
+    stringValue(data.input) ||
+    stringValue(data.context) ||
+    stringValue(data.summary) ||
+    name;
+  const result = isComplete ? openClawToolResultText(data) : "";
+  return {
+    callId,
+    hasStableCallId: !!explicitCallId,
+    name,
+    status:
+      lowerPhase === "failed" || lowerPhase === "error"
+        ? "failed"
+        : isComplete
+          ? "completed"
+          : "running",
+    label: stringValue(data.label) || name,
+    preview,
+    ...(result ? { result } : {}),
+  };
 }
 
 function resolveRemoteApiKey(url: string, apiKey?: string): string {
@@ -366,6 +483,7 @@ export interface ChatCallbacks {
   onDone: (sessionId?: string) => void;
   onError: (error: string) => void;
   onToolProgress?: (tool: string) => void;
+  onToolEvent?: (event: ChatToolEvent) => void;
   onUsage?: (usage: {
     promptTokens: number;
     completionTokens: number;
@@ -686,12 +804,15 @@ function sendMessageViaApi(
 
   /** Handle a custom SSE event (non-data lines with `event:` prefix). */
   function processCustomEvent(eventType: string, data: string): void {
-    if (eventType === "hermes.tool.progress" && cb.onToolProgress) {
+    if (eventType === "hermes.tool.progress") {
       try {
-        const payload = JSON.parse(data);
-        const label = payload.label || payload.tool || "";
-        const emoji = payload.emoji || "";
-        cb.onToolProgress(emoji ? `${emoji} ${label}` : label);
+        const payload = JSON.parse(data) as Record<string, unknown>;
+        const toolEvent = chatToolEventFromPayload(payload);
+        if (cb.onToolEvent) {
+          cb.onToolEvent(toolEvent);
+        } else if (cb.onToolProgress) {
+          cb.onToolProgress(chatToolProgressLabel(toolEvent));
+        }
       } catch {
         /* malformed — skip */
       }
@@ -712,6 +833,16 @@ function sendMessageViaApi(
     }
     try {
       const parsed = JSON.parse(data);
+
+      const toolEvent = openClawMode ? extractOpenClawToolEvent(parsed) : null;
+      if (toolEvent) {
+        if (cb.onToolEvent) {
+          cb.onToolEvent(toolEvent);
+        } else if (cb.onToolProgress) {
+          cb.onToolProgress(chatToolProgressLabel(toolEvent));
+        }
+        return false;
+      }
 
       // Capture error responses forwarded through SSE
       if (parsed.error) {

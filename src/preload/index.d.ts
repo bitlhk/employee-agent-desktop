@@ -1,5 +1,6 @@
 import type { AppLocale } from "../shared/i18n/types";
 import type { Attachment } from "../shared/attachments";
+import type { ChatToolEvent } from "../shared/chat-stream";
 import type {
   RegistryKind,
   RegistryItem,
@@ -357,6 +358,7 @@ interface HermesAPI {
   onChatReasoningChunk: (callback: (chunk: string) => void) => () => void;
   onChatDone: (callback: (sessionId?: string) => void) => () => void;
   onChatToolProgress: (callback: (tool: string) => void) => () => void;
+  onChatToolEvent: (callback: (toolEvent: ChatToolEvent) => void) => () => void;
   onChatUsage: (
     callback: (usage: {
       promptTokens: number;

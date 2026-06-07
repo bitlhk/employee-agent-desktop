@@ -136,6 +136,81 @@ function normalizeBubbleContentForMatch(s: string): string {
   );
 }
 
+function nonWhitespaceLength(s: string): number {
+  return s.replace(/\s+/g, "").length;
+}
+
+function buildDbAssistantSplitSequences(
+  items: ReadonlyArray<ChatMessage>,
+): string[][] {
+  const sequences: string[][] = [];
+  let current: string[] = [];
+
+  const flush = (): void => {
+    if (current.length >= 2) sequences.push(current);
+    current = [];
+  };
+
+  for (const m of items) {
+    if (!("kind" in m)) {
+      const bubble = m as ChatBubbleMessage;
+      if (bubble.role === "user") {
+        flush();
+        continue;
+      }
+      const text = normalizeBubbleContentForMatch(bubble.content || "");
+      if (text) current.push(text);
+    }
+  }
+
+  flush();
+  return sequences;
+}
+
+/**
+ * Detect the artifact behind issue #420/#431: the live stream can append
+ * several assistant DB rows into one renderer bubble because chunk events do
+ * not carry row-boundary markers. When the final DB refresh returns the
+ * canonical split rows, keeping the concatenated streamed bubble repeats large
+ * chunks of the answer.
+ */
+function isCoveredByDbBubbleSplit(
+  bubble: ChatBubbleMessage,
+  dbAssistantSplitSequences: ReadonlyArray<ReadonlyArray<string>>,
+): boolean {
+  if (bubble.role !== "agent") return false;
+
+  const text = normalizeBubbleContentForMatch(bubble.content || "");
+  if (!text) return false;
+
+  for (const sequence of dbAssistantSplitSequences) {
+    let searchFrom = 0;
+    let matchedSegments = 0;
+    let matchedNonWhitespaceLength = 0;
+
+    for (const dbText of sequence) {
+      if (!dbText) continue;
+      const index = text.indexOf(dbText, searchFrom);
+      if (index < 0) continue;
+
+      matchedSegments++;
+      matchedNonWhitespaceLength += nonWhitespaceLength(dbText);
+      searchFrom = index + dbText.length;
+    }
+
+    if (matchedSegments < 2) continue;
+
+    const textNonWhitespaceLength = nonWhitespaceLength(text);
+    if (textNonWhitespaceLength === 0) return false;
+
+    if (matchedNonWhitespaceLength / textNonWhitespaceLength >= 0.85) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function reconciliationKey(m: ChatMessage): string | null {
   if ("kind" in m) {
     switch (m.kind) {
@@ -151,6 +226,34 @@ function reconciliationKey(m: ChatMessage): string | null {
   }
   const bubble = m as ChatBubbleMessage;
   return `${bubble.role}:${normalizeBubbleContentForMatch(bubble.content || "").slice(0, 200)}`;
+}
+
+function isSyntheticLiveToolMessage(m: ChatMessage): boolean {
+  return (
+    "kind" in m &&
+    (m.kind === "tool_call" || m.kind === "tool_result") &&
+    (m.callId.startsWith("live-tool:") || m.id.includes("live-tool:"))
+  );
+}
+
+function toolNameMatchKey(m: ChatMessage): string | null {
+  if (!("kind" in m)) return null;
+  if (m.kind !== "tool_call" && m.kind !== "tool_result") return null;
+  return `${m.kind}:${m.name}`;
+}
+
+function consumeCanonicalToolMatch(
+  canonicalToolMatchCounts: Map<string, number>,
+  live: ChatMessage,
+): boolean {
+  if (!isSyntheticLiveToolMessage(live)) return false;
+  const key = toolNameMatchKey(live);
+  if (!key) return false;
+  const remaining = canonicalToolMatchCounts.get(key) || 0;
+  if (remaining <= 0) return false;
+  if (remaining === 1) canonicalToolMatchCounts.delete(key);
+  else canonicalToolMatchCounts.set(key, remaining - 1);
+  return true;
 }
 
 /**
@@ -218,7 +321,9 @@ export function reconcileStreamedWithDb(
     else streamedByKey.set(key, [m]);
   }
 
+  const dbAssistantSplitSequences = buildDbAssistantSplitSequences(db);
   const result: ChatMessage[] = [];
+  const canonicalToolMatchCounts = new Map<string, number>();
   for (const dbMsg of db) {
     const key = reconciliationKey(dbMsg);
     const bucket = key ? streamedByKey.get(key) : undefined;
@@ -230,6 +335,13 @@ export function reconcileStreamedWithDb(
       // streamed copy.
       result.push(mergeDbMetadataIntoStreamed(streamedMatch, dbMsg));
     } else {
+      const toolKey = toolNameMatchKey(dbMsg);
+      if (toolKey && !isSyntheticLiveToolMessage(dbMsg)) {
+        canonicalToolMatchCounts.set(
+          toolKey,
+          (canonicalToolMatchCounts.get(toolKey) || 0) + 1,
+        );
+      }
       result.push(dbMsg);
     }
   }
@@ -270,8 +382,10 @@ export function reconcileStreamedWithDb(
     target: ChatMessage[],
     m: ChatMessage,
     seen: Set<string>,
+    dropDbSplitArtifacts = true,
   ): boolean => {
     if (consumedIds.has(m.id)) return false;
+    if (consumeCanonicalToolMatch(canonicalToolMatchCounts, m)) return false;
     // For bubble messages, check if an equivalent already exists in the
     // result set.  Non-bubble messages (tool_call, tool_result, reasoning)
     // always pass through — they're either matched by callId above or are
@@ -280,6 +394,12 @@ export function reconcileStreamedWithDb(
       const bubble = m as ChatBubbleMessage;
       const contentKey = `${bubble.role}:${normalizeBubbleContentForMatch(bubble.content || "")}`;
       if (seen.has(contentKey)) return false;
+      if (
+        dropDbSplitArtifacts &&
+        isCoveredByDbBubbleSplit(bubble, dbAssistantSplitSequences)
+      ) {
+        return false;
+      }
       seen.add(contentKey);
     }
     target.push(m);
@@ -291,7 +411,7 @@ export function reconcileStreamedWithDb(
   for (let i = 0; i < streamed.length; i++) {
     const m = streamed[i];
     if (firstConsumedIndex >= 0 && i < firstConsumedIndex) {
-      appendIfUnique(prefix, m, seenPrefixBubbleKeys);
+      appendIfUnique(prefix, m, seenPrefixBubbleKeys, false);
     }
   }
 
