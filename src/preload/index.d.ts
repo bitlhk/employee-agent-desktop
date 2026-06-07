@@ -254,6 +254,7 @@ interface HermesAPI {
     hasApiKey: boolean;
     apiKeyLength: number;
     openClawAgentId: string;
+    openClawDirect: boolean;
     ssh: {
       host: string;
       port: number;
@@ -268,6 +269,15 @@ interface HermesAPI {
     remoteUrl: string,
     apiKey?: string,
   ) => Promise<boolean>;
+  connectEnterprise: (
+    baseUrl: string,
+    accessToken?: string,
+  ) => Promise<{
+    gatewayUrl?: string;
+    defaultAgentId?: string;
+    agents?: Array<{ id: string; name?: string; description?: string }>;
+    user?: { id?: string; name?: string };
+  }>;
   setSshConfig: (
     host: string,
     port: number,

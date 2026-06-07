@@ -45,6 +45,7 @@ export interface ConnectionConfig {
   mode: "local" | "remote" | "ssh";
   remoteUrl: string;
   apiKey: string;
+  openClawDirect: boolean;
   ssh: SshConnectionConfig;
 }
 
@@ -53,6 +54,7 @@ export interface PublicConnectionConfig {
   remoteUrl: string;
   hasApiKey: boolean;
   openClawAgentId: string;
+  openClawDirect: boolean;
   // Length of the stored API key, exposed so the renderer can show a
   // mask that matches the real value's width. The secret itself never
   // leaves the main process. 0 when no key is set.
@@ -94,6 +96,7 @@ export function getConnectionConfig(): ConnectionConfig {
     mode: (data.connectionMode as "local" | "remote" | "ssh") || "ssh",
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
+    openClawDirect: Boolean(data.openClawDirect),
     ssh: {
       host: (ssh.host as string) || OPENCLAW_DEFAULT_HOST,
       port: (ssh.port as number) || 22,
@@ -106,7 +109,10 @@ export function getConnectionConfig(): ConnectionConfig {
 }
 
 export function isOpenClawConnection(config = getConnectionConfig()): boolean {
-  return config.mode === "ssh" && Number(config.ssh.remotePort) === 18789;
+  return (
+    Boolean(config.openClawDirect) ||
+    (config.mode === "ssh" && Number(config.ssh.remotePort) === 18789)
+  );
 }
 
 export function getOpenClawAgentId(): string {
@@ -123,6 +129,7 @@ export function getPublicConnectionConfig(): PublicConnectionConfig {
     hasApiKey: config.apiKey.length > 0,
     apiKeyLength: config.apiKey.length,
     openClawAgentId: getOpenClawAgentId(),
+    openClawDirect: config.openClawDirect,
     ssh: config.ssh,
   };
 }
@@ -131,6 +138,13 @@ export function setOpenClawAgentId(agentId: string): void {
   const data = readDesktopConfig();
   data.employeeAgentDesktop = true;
   data.openClawAgentId = agentId.trim() || OPENCLAW_DEFAULT_AGENT_ID;
+  writeDesktopConfig(data);
+}
+
+export function setOpenClawDirect(enabled: boolean): void {
+  const data = readDesktopConfig();
+  data.employeeAgentDesktop = true;
+  data.openClawDirect = enabled;
   writeDesktopConfig(data);
 }
 

@@ -187,6 +187,7 @@ const hermesAPI = {
     remoteUrl: string;
     hasApiKey: boolean;
     openClawAgentId: string;
+    openClawDirect: boolean;
     ssh: {
       host: string;
       port: number;
@@ -203,6 +204,16 @@ const hermesAPI = {
     apiKey?: string,
   ): Promise<boolean> =>
     ipcRenderer.invoke("set-connection-config", mode, remoteUrl, apiKey),
+
+  connectEnterprise: (
+    baseUrl: string,
+    accessToken?: string,
+  ): Promise<{
+    gatewayUrl?: string;
+    defaultAgentId?: string;
+    agents?: Array<{ id: string; name?: string; description?: string }>;
+    user?: { id?: string; name?: string };
+  }> => ipcRenderer.invoke("connect-enterprise", baseUrl, accessToken),
 
   setSshConfig: (
     host: string,

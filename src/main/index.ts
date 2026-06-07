@@ -102,6 +102,7 @@ import {
   resolveConnectionApiKeyUpdate,
   setConnectionConfig,
   setOpenClawAgentId,
+  setOpenClawDirect,
   getPlatformEnabled,
   setPlatformEnabled,
   getApiServerKey,
@@ -254,6 +255,51 @@ async function hydrateSshAuthHeaderForConnection(): Promise<void> {
     : await sshReadRemoteApiKey(conn.ssh);
   if (key) setSshRemoteApiKey(key);
 }
+
+function normaliseEnterpriseUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "");
+}
+
+ipcMain.handle(
+  "connect-enterprise",
+  async (_event, baseUrl: string, accessToken?: string) => {
+    const controlUrl = normaliseEnterpriseUrl(baseUrl);
+    if (!controlUrl) throw new Error("Enterprise service URL is required");
+    const headers: Record<string, string> = {};
+    const token = String(accessToken || "").trim();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const resp = await fetch(`${controlUrl}/api/desktop/bootstrap`, {
+      method: "GET",
+      headers,
+    });
+    if (!resp.ok) {
+      throw new Error(`Desktop bootstrap failed: HTTP ${resp.status}`);
+    }
+    const data = (await resp.json()) as {
+      gatewayUrl?: string;
+      gatewayToken?: string;
+      defaultAgentId?: string;
+      agents?: Array<{ id: string; name?: string; description?: string }>;
+      user?: { id?: string; name?: string };
+    };
+    const gatewayUrl = normaliseEnterpriseUrl(data.gatewayUrl || "");
+    const agentId = String(data.defaultAgentId || data.agents?.[0]?.id || "").trim();
+    if (!gatewayUrl) throw new Error("Desktop bootstrap did not return gatewayUrl");
+    if (!agentId) throw new Error("Desktop bootstrap did not return an agent id");
+
+    const current = getConnectionConfig();
+    setConnectionConfig({
+      ...current,
+      mode: "remote",
+      remoteUrl: gatewayUrl,
+      apiKey: String(data.gatewayToken || ""),
+    });
+    setOpenClawAgentId(agentId);
+    setOpenClawDirect(true);
+    return data;
+  },
+);
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);

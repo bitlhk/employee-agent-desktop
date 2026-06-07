@@ -19,7 +19,7 @@ interface WelcomeProps {
   onSwitchToLocal: () => void;
 }
 
-type ConnectionPanel = "none" | "remote" | "ssh";
+type ConnectionPanel = "none" | "enterprise" | "remote" | "ssh";
 
 function Welcome({
   error,
@@ -30,6 +30,12 @@ function Welcome({
 }: WelcomeProps): React.JSX.Element {
   const { t } = useI18n();
   const [panel, setPanel] = useState<ConnectionPanel>("none");
+
+  // Enterprise state
+  const [enterpriseUrl, setEnterpriseUrl] = useState("https://work.linggan.top");
+  const [enterpriseToken, setEnterpriseToken] = useState("");
+  const [enterpriseError, setEnterpriseError] = useState<string | null>(null);
+  const [enterpriseTesting, setEnterpriseTesting] = useState(false);
 
   // Remote state
   const [remoteUrl, setRemoteUrl] = useState("");
@@ -47,6 +53,29 @@ function Welcome({
   const [sshAgentId, setSshAgentId] = useState("trial_lgc-ppstsl9ddr");
   const [sshError, setSshError] = useState<string | null>(null);
   const [sshTesting, setSshTesting] = useState(false);
+
+  async function handleConnectEnterprise(): Promise<void> {
+    const url = enterpriseUrl.trim();
+    if (!url) {
+      setEnterpriseError("Please enter the enterprise service URL.");
+      return;
+    }
+    setEnterpriseTesting(true);
+    setEnterpriseError(null);
+    try {
+      await window.hermesAPI.connectEnterprise(
+        url,
+        enterpriseToken.trim() || undefined,
+      );
+      onRecheck();
+    } catch (e) {
+      setEnterpriseError(
+        "Enterprise connection failed: " + (e as Error).message,
+      );
+    } finally {
+      setEnterpriseTesting(false);
+    }
+  }
 
   async function handleConnectRemote(): Promise<void> {
     const url = remoteUrl.trim();
@@ -184,6 +213,96 @@ function Welcome({
             </p>
           )}
           <p className="welcome-remote-hint">{t("welcome.remoteHint")}</p>
+        </div>
+
+        <button
+          className="btn-ghost"
+          onClick={() => setPanel("none")}
+          style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)" }}
+        >
+          {t("common.back")}
+        </button>
+      </div>
+    );
+  }
+
+  if (panel === "enterprise") {
+    return (
+      <div className="screen welcome-screen">
+        <HermesLogo size={36} />
+        <h1 className="welcome-title" style={{ fontSize: 22 }}>
+          Connect to Employee Agent
+        </h1>
+        <p className="welcome-subtitle" style={{ marginBottom: 24 }}>
+          Connect through the enterprise control plane. Agent, Gateway and token
+          configuration are provided by the server.
+        </p>
+
+        <div className="welcome-remote-card">
+          <label className="welcome-remote-label">
+            Enterprise Service URL
+          </label>
+          <input
+            type="url"
+            className="welcome-remote-input"
+            placeholder="https://work.linggan.top"
+            value={enterpriseUrl}
+            onChange={(e) => setEnterpriseUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConnectEnterprise();
+            }}
+            autoFocus
+          />
+
+          <label className="welcome-remote-label" style={{ marginTop: 12 }}>
+            Access Token{" "}
+            <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+          </label>
+          <input
+            type="password"
+            className="welcome-remote-input"
+            placeholder="Optional for the current MVP"
+            value={enterpriseToken}
+            onChange={(e) => setEnterpriseToken(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConnectEnterprise();
+            }}
+          />
+
+          <div className="welcome-remote-row" style={{ marginTop: 16 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleConnectEnterprise}
+              disabled={enterpriseTesting || !enterpriseUrl.trim()}
+              style={{ whiteSpace: "nowrap", width: "100%" }}
+            >
+              {enterpriseTesting ? (
+                <>
+                  Connecting…
+                  <Spinner size={14} className="animate-spin" />
+                </>
+              ) : (
+                <>
+                  Connect
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
+          </div>
+
+          {enterpriseError && (
+            <p
+              className="welcome-remote-error"
+              style={{ whiteSpace: "pre-line" }}
+            >
+              {enterpriseError}
+            </p>
+          )}
+
+          <p className="welcome-remote-hint">
+            No SSH key is required. Desktop talks to employee-agent for control
+            data, then streams chat through the configured OpenClaw Gateway.
+          </p>
         </div>
 
         <button
@@ -399,18 +518,18 @@ function Welcome({
               <span>or</span>
             </div>
             <button
-              className="btn btn-secondary welcome-recheck-btn"
-              onClick={() => setPanel("ssh")}
+              className="btn btn-primary welcome-recheck-btn"
+              onClick={() => setPanel("enterprise")}
             >
-              <KeyRound size={16} />
-              Connect to OpenClaw
+              <Globe size={16} />
+              Connect Employee Agent
             </button>{" "}
             <button
               className="btn btn-secondary welcome-recheck-btn "
-              onClick={() => setPanel("remote")}
+              onClick={() => setPanel("ssh")}
             >
-              <Globe size={16} />
-              Connect to Remote OpenClaw
+              <KeyRound size={16} />
+              Advanced OpenClaw
             </button>
           </div>
         </>
@@ -430,19 +549,19 @@ function Welcome({
 
           <button
             className="btn btn-secondary welcome-recheck-btn"
-            onClick={() => setPanel("ssh")}
+            onClick={() => setPanel("enterprise")}
           >
-            <KeyRound size={16} />
-            Connect to OpenClaw
+            <Globe size={16} />
+            Connect Employee Agent
           </button>
 
           <button
             className="btn btn-secondary welcome-recheck-btn"
-            onClick={() => setPanel("remote")}
+            onClick={() => setPanel("ssh")}
             style={{ marginTop: 12 }}
           >
-            <Globe size={16} />
-            {t("welcome.connectRemote")}
+            <KeyRound size={16} />
+            Advanced OpenClaw
           </button>
         </>
       )}
