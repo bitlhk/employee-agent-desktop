@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import splashBg from "../../assets/hermesbg.webp";
+import splashBg from "../../assets/splash.png";
 import lingxiaLogo from "../../assets/lingxia.svg";
 
 interface SplashScreenProps {
