@@ -170,6 +170,40 @@ describe("upsertLiveToolEvent", () => {
     });
   });
 
+  it("does not replace the tool name when a result event has no name", () => {
+    const messages: ChatMessage[] = [
+      { id: "u-1", role: "user", content: "search" },
+      {
+        id: "tool-call-call-search",
+        kind: "tool_call",
+        role: "agent",
+        callId: "call-search",
+        name: "search_web",
+        args: '{"query":"Marvis"}',
+        status: "running",
+      },
+    ];
+
+    const next = upsertLiveToolEvent(messages, {
+      callId: "call-search",
+      hasStableCallId: true,
+      name: "",
+      status: "completed",
+      result: "done",
+    });
+
+    expect(next[0]).toEqual(messages[0]);
+    expect(next[1]).toMatchObject({
+      name: "search_web",
+      status: "completed",
+    });
+    expect(next[2]).toMatchObject({
+      kind: "tool_result",
+      name: "search_web",
+      content: "done",
+    });
+  });
+
   it("appends new live rows after earlier tool rows, not at the top", () => {
     const messages: ChatMessage[] = [
       { id: "u-1", role: "user", content: "make image" },

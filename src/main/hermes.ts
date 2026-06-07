@@ -359,6 +359,60 @@ export function extractOpenAiToolCallEvents(
   return events;
 }
 
+export function chatToolEventFromSseEvent(
+  eventType: string,
+  payload: Record<string, unknown>,
+): ChatToolEvent | null {
+  if (eventType === "tool_call") {
+    const name =
+      stringValue(payload.name) ||
+      stringValue(payload.tool) ||
+      stringValue(payload.tool_name) ||
+      "tool";
+    return {
+      callId:
+        stringValue(payload.id) ||
+        stringValue(payload.tool_call_id) ||
+        `${name}:${Date.now()}`,
+      hasStableCallId: Boolean(payload.id || payload.tool_call_id),
+      name,
+      status: "running",
+      label: name,
+      preview:
+        stringValue(payload.arguments) ||
+        stringValue(payload.args) ||
+        stringValue(payload.preview) ||
+        name,
+    };
+  }
+
+  if (eventType === "tool_result") {
+    const name =
+      stringValue(payload.name) ||
+      stringValue(payload.tool) ||
+      stringValue(payload.tool_name) ||
+      "";
+    const result =
+      stringValue(payload.result) ||
+      stringValue(payload.output) ||
+      stringValue(payload.content) ||
+      "";
+    return {
+      callId:
+        stringValue(payload.tool_call_id) ||
+        stringValue(payload.id) ||
+        `tool-result:${Date.now()}`,
+      hasStableCallId: Boolean(payload.tool_call_id || payload.id),
+      name,
+      status: payload.is_error ? "failed" : "completed",
+      ...(name ? { label: name, preview: name } : {}),
+      ...(result ? { result } : {}),
+    };
+  }
+
+  return null;
+}
+
 function resolveRemoteApiKey(url: string, apiKey?: string): string {
   if (apiKey !== undefined) return apiKey;
 
@@ -887,7 +941,7 @@ function sendMessageViaApi(
   }
 
   /** Handle a custom SSE event (non-data lines with `event:` prefix). */
-  function processCustomEvent(eventType: string, data: string): void {
+  function processCustomEvent(eventType: string, data: string): boolean {
     if (eventType === "hermes.tool.progress") {
       try {
         const payload = JSON.parse(data) as Record<string, unknown>;
@@ -900,7 +954,33 @@ function sendMessageViaApi(
       } catch {
         /* malformed — skip */
       }
+      return true;
     }
+
+    if (eventType === "tool_call" || eventType === "tool_result") {
+      try {
+        const payload = JSON.parse(data) as Record<string, unknown>;
+        const toolEvent = chatToolEventFromSseEvent(eventType, payload);
+        if (toolEvent) {
+          console.log("[openclaw] sse tool event", {
+            eventType,
+            name: toolEvent.name,
+            status: toolEvent.status,
+            stable: toolEvent.hasStableCallId !== false,
+          });
+          if (cb.onToolEvent) {
+            cb.onToolEvent(toolEvent);
+          } else if (cb.onToolProgress) {
+            cb.onToolProgress(chatToolProgressLabel(toolEvent));
+          }
+          return true;
+        }
+      } catch {
+        /* malformed — skip */
+      }
+      return true;
+    }
+    return false;
   }
 
   function processSseData(data: string): boolean {
@@ -1072,9 +1152,10 @@ function sendMessageViaApi(
         }
         if (!dataLine) return false;
         if (eventType) {
-          // Custom event (e.g. hermes.tool.progress) — never signals [DONE]
-          processCustomEvent(eventType, dataLine);
-          return false;
+          // Custom event (e.g. hermes.tool.progress / tool_call). Unknown
+          // event types may still contain OpenAI-compatible JSON, so don't
+          // silently drop them.
+          if (processCustomEvent(eventType, dataLine)) return false;
         }
         return processSseData(dataLine);
       }

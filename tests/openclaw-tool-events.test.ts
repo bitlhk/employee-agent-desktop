@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chatToolEventFromSseEvent,
   extractOpenAiToolCallEvents,
   extractOpenClawToolEvent,
 } from "../src/main/hermes";
@@ -80,6 +81,41 @@ describe("extractOpenClawToolEvent", () => {
       hasStableCallId: false,
       name: "search_web",
       status: "running",
+    });
+  });
+});
+
+describe("chatToolEventFromSseEvent", () => {
+  it("normalizes employee-agent SSE tool_call events", () => {
+    expect(
+      chatToolEventFromSseEvent("tool_call", {
+        id: "call-search",
+        name: "search_web",
+        arguments: '{"query":"Marvis"}',
+      }),
+    ).toEqual({
+      callId: "call-search",
+      hasStableCallId: true,
+      name: "search_web",
+      status: "running",
+      label: "search_web",
+      preview: '{"query":"Marvis"}',
+    });
+  });
+
+  it("normalizes employee-agent SSE tool_result events", () => {
+    expect(
+      chatToolEventFromSseEvent("tool_result", {
+        tool_call_id: "call-search",
+        result: "done",
+        is_error: false,
+      }),
+    ).toEqual({
+      callId: "call-search",
+      hasStableCallId: true,
+      name: "",
+      status: "completed",
+      result: "done",
     });
   });
 });

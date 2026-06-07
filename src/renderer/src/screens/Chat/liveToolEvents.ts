@@ -233,11 +233,11 @@ export function upsertLiveToolEvent(
     const updated = [
       ...messages.slice(0, index),
       {
-        ...current,
-        callId,
-        name: event.name || current.name,
-        args: updatedToolArgs(current, event),
-        status: event.status,
+      ...current,
+      callId,
+      name: event.name && event.name !== "tool" ? event.name : current.name,
+      args: updatedToolArgs(current, event),
+      status: event.status,
       },
       ...messages.slice(index + 1),
     ];
