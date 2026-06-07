@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import icon from "../../assets/icon.png";
+import lingxiaLogo from "../../assets/lingxia.svg";
 import { AgentMarkdown } from "../../components/AgentMarkdown";
 import { AttachmentChip } from "../../components/AttachmentChip";
 import { MediaSegmentView } from "../../components/MediaImage";
@@ -25,7 +25,7 @@ export const HermesAvatar = memo(function HermesAvatar({
 }): React.JSX.Element {
   return (
     <div className="chat-avatar chat-avatar-agent">
-      <img src={icon} width={size} height={size} alt="" />
+      <img src={lingxiaLogo} width={size} height={size} alt="" />
     </div>
   );
 });
