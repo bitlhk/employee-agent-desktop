@@ -1,13 +1,13 @@
-import icon from "../../assets/icon.png";
+import lingxiaLogo from "../../assets/lingxia.svg";
 
 function HermesLogo({ size = 32 }: { size?: number }): React.JSX.Element {
   return (
     <img
-      src={icon}
+      src={lingxiaLogo}
       width={size}
       height={size}
-      className="rounded-xl"
-      alt="Employee Agent Desktop"
+      className="lingxia-logo"
+      alt="灵犀员工智能体"
     />
   );
 }

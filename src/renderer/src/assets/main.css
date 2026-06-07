@@ -336,10 +336,16 @@ body {
   border-radius: var(--radius-lg);
 }
 
+.lingxia-logo {
+  display: block;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(225, 29, 72, 0.14);
+}
+
 .welcome-title {
   font-size: 32px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   margin-bottom: 10px;
   color: var(--text-primary);
 }
@@ -919,22 +925,26 @@ body {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
-  padding: 20px 10px;
+  padding: 20px 18px;
   margin-top: 25px;
 }
 
 .sidebar-logo {
-  height: 30px;
-  width: 150px;
-  background-color: var(--primary-yellow);
-  mask-repeat: no-repeat;
-  mask-position: center;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  -webkit-mask-size: contain;
+  height: 34px;
+  width: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(225, 29, 72, 0.16);
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
 }
 
 .sidebar-brand-icon {
@@ -951,9 +961,18 @@ body {
 }
 
 .sidebar-brand-name {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 750;
   color: var(--text-primary);
+  letter-spacing: 0;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .sidebar-nav {
@@ -7280,13 +7299,42 @@ body {
   object-fit: cover;
 }
 
-.splash-logo {
+.splash-brand {
   position: relative;
   z-index: 1;
-  width: 600px;
-  max-width: 60%;
+  display: flex;
+  align-items: center;
+  gap: 18px;
   opacity: 0;
   animation: splashFadeIn 1.1s ease-out forwards;
+}
+
+.splash-brand-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(225, 29, 72, 0.18);
+}
+
+.splash-brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.splash-brand-copy span {
+  font-size: 46px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--text-primary);
+}
+
+.splash-brand-copy small {
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--text-muted);
+  letter-spacing: 0;
 }
 
 @keyframes splashFadeIn {

@@ -20,7 +20,7 @@ import Schedules from "../Schedules/Schedules";
 import Kanban from "../Kanban/Kanban";
 import RemoteNotice from "../../components/RemoteNotice";
 import VerifyWarningBanner from "../../components/VerifyWarningBanner";
-import hermeslogo from "../../assets/hermes-one.svg";
+import lingxiaLogo from "../../assets/lingxia.svg";
 import {
   ChatBubble,
   Clock,
@@ -233,15 +233,15 @@ function Layout({
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span
+          <img
             className="sidebar-logo"
-            role="img"
-            aria-label="Employee Agent Desktop"
-            style={{
-              maskImage: `url(${hermeslogo})`,
-              WebkitMaskImage: `url(${hermeslogo})`,
-            }}
+            src={lingxiaLogo}
+            alt="灵犀员工智能体"
           />
+          <div className="sidebar-brand-copy">
+            <div className="sidebar-brand-name">LINGXIA</div>
+            <div className="sidebar-brand-subtitle">企业级员工智能体</div>
+          </div>
         </div>
 
         <nav className="sidebar-nav">

@@ -238,10 +238,11 @@ function Welcome({
       <div className="screen welcome-screen">
         <HermesLogo size={36} />
         <h1 className="welcome-title" style={{ fontSize: 22 }}>
-          登录员工智能体
+          登录 LINGXIA
         </h1>
         <p className="welcome-subtitle" style={{ marginBottom: 24 }}>
-          登录后自动连接你的企业智能体。模型、网关和工具权限由平台统一下发。
+          企业级员工智能体桌面端。登录后自动连接你的企业智能体，
+          模型、网关和工具权限由平台统一下发。
         </p>
 
         <div className="welcome-remote-card">
@@ -494,6 +495,12 @@ function Welcome({
   return (
     <div className="screen welcome-screen">
       <HermesLogo size={40} />
+      {!error && (
+        <>
+          <h1 className="welcome-title">LINGXIA</h1>
+          <p className="welcome-subtitle">企业级员工智能体桌面端</p>
+        </>
+      )}
 
       {error ? (
         <>
@@ -561,13 +568,13 @@ function Welcome({
         </>
       ) : (
         <>
-          <button
-            className="btn btn-primary welcome-recheck-btn"
-            onClick={() => setPanel("enterprise")}
-          >
-            <Globe size={16} />
-            登录员工智能体
-          </button>
+            <button
+              className="btn btn-primary welcome-recheck-btn"
+              onClick={() => setPanel("enterprise")}
+            >
+              <Globe size={16} />
+              登录 LINGXIA
+            </button>
 
           {import.meta.env.DEV && (
             <button

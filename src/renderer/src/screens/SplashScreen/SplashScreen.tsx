@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import splashBg from "../../assets/hermesbg.webp";
-import splashLogo from "../../assets/splashtext-w.webp";
+import lingxiaLogo from "../../assets/lingxia.svg";
 
 interface SplashScreenProps {
   onFinished: () => void;
@@ -14,7 +14,13 @@ function SplashScreen({ onFinished }: SplashScreenProps): React.JSX.Element {
   return (
     <div className="splash-screen">
       <img className="splash-bg" src={splashBg} alt="" />
-      <img className="splash-logo" src={splashLogo} alt="Hermes Agent" />
+      <div className="splash-brand" aria-label="LINGXIA 企业级员工智能体">
+        <img className="splash-brand-icon" src={lingxiaLogo} alt="" />
+        <div className="splash-brand-copy">
+          <span>LINGXIA</span>
+          <small>企业级员工智能体</small>
+        </div>
+      </div>
     </div>
   );
 }
