@@ -580,6 +580,7 @@ function sendMessageViaApi(
   let hasContent = false;
   let finished = false; // guard against double callbacks
   let lastError = ""; // capture embedded error messages
+  let openClawAccumulatedContent = "";
   // Tool progress pattern: `emoji tool_name` or `emoji description`
   const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
@@ -597,6 +598,32 @@ function sendMessageViaApi(
     } else {
       cb.onDone(sessionId || undefined);
     }
+  }
+
+  function normalizeOpenClawChunk(chunk: string): string {
+    if (!openClawMode || !chunk) return chunk;
+    if (!openClawAccumulatedContent) {
+      openClawAccumulatedContent = chunk;
+      return chunk;
+    }
+    if (chunk === openClawAccumulatedContent) {
+      console.log("[openclaw] ignored repeated cumulative chunk");
+      return "";
+    }
+    if (chunk.startsWith(openClawAccumulatedContent)) {
+      const next = chunk.slice(openClawAccumulatedContent.length);
+      openClawAccumulatedContent = chunk;
+      console.log(
+        "[openclaw] normalized cumulative chunk",
+        "raw=",
+        chunk.length,
+        "delta=",
+        next.length,
+      );
+      return next;
+    }
+    openClawAccumulatedContent += chunk;
+    return chunk;
   }
 
   function probeRealError(): void {
@@ -726,14 +753,20 @@ function sendMessageViaApi(
         if (match && cb.onToolProgress) {
           cb.onToolProgress(`${match[1]} ${match[2]}`);
         } else {
-          hasContent = true;
-          cb.onChunk(delta.content);
+          const normalized = normalizeOpenClawChunk(delta.content);
+          if (normalized) {
+            hasContent = true;
+            cb.onChunk(normalized);
+          }
         }
       } else if (openClawMode) {
         const openClawDelta = extractOpenClawContentDelta(parsed);
         if (openClawDelta) {
-          hasContent = true;
-          cb.onChunk(openClawDelta);
+          const normalized = normalizeOpenClawChunk(openClawDelta);
+          if (normalized) {
+            hasContent = true;
+            cb.onChunk(normalized);
+          }
         }
       }
     } catch {
