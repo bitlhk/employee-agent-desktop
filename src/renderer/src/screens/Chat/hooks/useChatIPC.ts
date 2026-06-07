@@ -109,6 +109,8 @@ export function useChatIPC({
       // `reconcileStreamedWithDb` does the matching — see its doc block.
       if (!sessionId) return;
       try {
+        const conn = await window.hermesAPI.getConnectionConfig();
+        if (conn.openClawDirect) return;
         const items = (await window.hermesAPI.getSessionMessages(
           sessionId,
         )) as DbHistoryItem[];

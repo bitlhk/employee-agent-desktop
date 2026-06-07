@@ -478,10 +478,11 @@ function sendMessageViaApi(
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
 
   // Build full conversation from history + current message (standard OpenAI format).
-  // History items are kept text-only — attachments from prior turns live in
-  // the gateway's session state when resuming via session_id.
+  // OpenClaw direct mode already keeps conversation state by
+  // x-openclaw-session-key, so sending the visible transcript again causes the
+  // model to see prior turns twice and repeat itself.
   const messages: Array<{ role: string; content: ChatContent }> = [];
-  if (history && history.length > 0) {
+  if (!openClawMode && history && history.length > 0) {
     for (const msg of history) {
       messages.push({
         role: msg.role === "agent" ? "assistant" : msg.role,
@@ -504,7 +505,7 @@ function sendMessageViaApi(
     model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
     messages,
     stream: true,
-    ...(_resumeSessionId ? { session_id: _resumeSessionId } : {}),
+    ...(!openClawMode && _resumeSessionId ? { session_id: _resumeSessionId } : {}),
   });
 
   // Encode the body up-front into a Buffer so we can:
