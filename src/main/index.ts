@@ -262,11 +262,39 @@ function normaliseEnterpriseUrl(raw: string): string {
 
 ipcMain.handle(
   "connect-enterprise",
-  async (_event, baseUrl: string, accessToken?: string) => {
+  async (
+    _event,
+    baseUrl: string,
+    accessTokenOrEmail?: string,
+    password?: string,
+  ) => {
     const controlUrl = normaliseEnterpriseUrl(baseUrl);
     if (!controlUrl) throw new Error("Enterprise service URL is required");
+    let token = String(accessTokenOrEmail || "").trim();
+
+    if (password !== undefined) {
+      const email = token;
+      const loginResp = await fetch(`${controlUrl}/api/desktop/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!loginResp.ok) {
+        let message = `Desktop login failed: HTTP ${loginResp.status}`;
+        try {
+          const err = (await loginResp.json()) as { error?: string };
+          if (err.error) message = err.error;
+        } catch {
+          /* ignore malformed error body */
+        }
+        throw new Error(message);
+      }
+      const loginData = (await loginResp.json()) as { accessToken?: string };
+      token = String(loginData.accessToken || "").trim();
+      if (!token) throw new Error("Desktop login did not return an access token");
+    }
+
     const headers: Record<string, string> = {};
-    const token = String(accessToken || "").trim();
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const resp = await fetch(`${controlUrl}/api/desktop/bootstrap`, {

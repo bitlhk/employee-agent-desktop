@@ -208,13 +208,20 @@ const hermesAPI = {
 
   connectEnterprise: (
     baseUrl: string,
-    accessToken?: string,
+    accessTokenOrEmail?: string,
+    password?: string,
   ): Promise<{
     gatewayUrl?: string;
     defaultAgentId?: string;
     agents?: Array<{ id: string; name?: string; description?: string }>;
     user?: { id?: string; name?: string };
-  }> => ipcRenderer.invoke("connect-enterprise", baseUrl, accessToken),
+  }> =>
+    ipcRenderer.invoke(
+      "connect-enterprise",
+      baseUrl,
+      accessTokenOrEmail,
+      password,
+    ),
 
   setSshConfig: (
     host: string,

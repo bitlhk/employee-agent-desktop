@@ -272,7 +272,8 @@ interface HermesAPI {
   ) => Promise<boolean>;
   connectEnterprise: (
     baseUrl: string,
-    accessToken?: string,
+    accessTokenOrEmail?: string,
+    password?: string,
   ) => Promise<{
     gatewayUrl?: string;
     defaultAgentId?: string;

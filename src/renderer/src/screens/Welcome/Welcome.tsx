@@ -29,11 +29,12 @@ function Welcome({
   onSwitchToLocal,
 }: WelcomeProps): React.JSX.Element {
   const { t } = useI18n();
-  const [panel, setPanel] = useState<ConnectionPanel>("none");
+  const [panel, setPanel] = useState<ConnectionPanel>("enterprise");
 
   // Enterprise state
   const [enterpriseUrl, setEnterpriseUrl] = useState("https://work.linggan.top");
-  const [enterpriseToken, setEnterpriseToken] = useState("");
+  const [enterpriseEmail, setEnterpriseEmail] = useState("");
+  const [enterprisePassword, setEnterprisePassword] = useState("");
   const [enterpriseError, setEnterpriseError] = useState<string | null>(null);
   const [enterpriseTesting, setEnterpriseTesting] = useState(false);
 
@@ -57,7 +58,12 @@ function Welcome({
   async function handleConnectEnterprise(): Promise<void> {
     const url = enterpriseUrl.trim();
     if (!url) {
-      setEnterpriseError("Please enter the enterprise service URL.");
+      setEnterpriseError("请输入企业服务地址。");
+      return;
+    }
+    const email = enterpriseEmail.trim();
+    if (!email || !enterprisePassword) {
+      setEnterpriseError("请输入邮箱和密码。");
       return;
     }
     setEnterpriseTesting(true);
@@ -65,12 +71,13 @@ function Welcome({
     try {
       await window.hermesAPI.connectEnterprise(
         url,
-        enterpriseToken.trim() || undefined,
+        email,
+        enterprisePassword,
       );
       onRecheck();
     } catch (e) {
       setEnterpriseError(
-        "Enterprise connection failed: " + (e as Error).message,
+        "登录或连接失败：" + (e as Error).message,
       );
     } finally {
       setEnterpriseTesting(false);
@@ -231,16 +238,15 @@ function Welcome({
       <div className="screen welcome-screen">
         <HermesLogo size={36} />
         <h1 className="welcome-title" style={{ fontSize: 22 }}>
-          Connect to Employee Agent
+          登录员工智能体
         </h1>
         <p className="welcome-subtitle" style={{ marginBottom: 24 }}>
-          Connect through the enterprise control plane. Agent, Gateway and token
-          configuration are provided by the server.
+          登录后自动连接你的企业智能体。模型、网关和工具权限由平台统一下发。
         </p>
 
         <div className="welcome-remote-card">
           <label className="welcome-remote-label">
-            Enterprise Service URL
+            企业服务地址
           </label>
           <input
             type="url"
@@ -255,15 +261,28 @@ function Welcome({
           />
 
           <label className="welcome-remote-label" style={{ marginTop: 12 }}>
-            Access Token{" "}
-            <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+            邮箱
+          </label>
+          <input
+            type="email"
+            className="welcome-remote-input"
+            placeholder="name@company.com"
+            value={enterpriseEmail}
+            onChange={(e) => setEnterpriseEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConnectEnterprise();
+            }}
+          />
+
+          <label className="welcome-remote-label" style={{ marginTop: 12 }}>
+            密码
           </label>
           <input
             type="password"
             className="welcome-remote-input"
-            placeholder="Optional for the current MVP"
-            value={enterpriseToken}
-            onChange={(e) => setEnterpriseToken(e.target.value)}
+            placeholder="请输入登录密码"
+            value={enterprisePassword}
+            onChange={(e) => setEnterprisePassword(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleConnectEnterprise();
             }}
@@ -273,17 +292,22 @@ function Welcome({
             <button
               className="btn btn-primary"
               onClick={handleConnectEnterprise}
-              disabled={enterpriseTesting || !enterpriseUrl.trim()}
+              disabled={
+                enterpriseTesting ||
+                !enterpriseUrl.trim() ||
+                !enterpriseEmail.trim() ||
+                !enterprisePassword
+              }
               style={{ whiteSpace: "nowrap", width: "100%" }}
             >
               {enterpriseTesting ? (
                 <>
-                  Connecting…
+                  正在登录…
                   <Spinner size={14} className="animate-spin" />
                 </>
               ) : (
                 <>
-                  Connect
+                  登录并连接
                   <ArrowRight size={16} />
                 </>
               )}
@@ -300,18 +324,20 @@ function Welcome({
           )}
 
           <p className="welcome-remote-hint">
-            No SSH key is required. Desktop talks to employee-agent for control
-            data, then streams chat through the configured OpenClaw Gateway.
+            无需 SSH key 或 OpenClaw token。桌面端只连接 employee-agent，
+            由平台完成身份校验、智能体选择和网关转发。
           </p>
         </div>
 
-        <button
-          className="btn-ghost"
-          onClick={() => setPanel("none")}
-          style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)" }}
-        >
-          {t("common.back")}
-        </button>
+        {import.meta.env.DEV && (
+          <button
+            className="btn-ghost"
+            onClick={() => setPanel("ssh")}
+            style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)" }}
+          >
+            开发者高级连接
+          </button>
+        )}
       </div>
     );
   }
@@ -535,34 +561,24 @@ function Welcome({
         </>
       ) : (
         <>
-          <h1 className="welcome-title">{t("welcome.title")}</h1>
-          <p className="welcome-subtitle">{t("welcome.subtitle")}</p>
-          <button className="btn btn-primary welcome-button" onClick={onStart}>
-            {t("welcome.getStarted")}
-            <ArrowRight size={16} />
-          </button>
-          <p className="welcome-note">{t("welcome.installSizeHint")}</p>
-
-          <div className="welcome-divider">
-            <span>{t("welcome.dividerOr")}</span>
-          </div>
-
           <button
-            className="btn btn-secondary welcome-recheck-btn"
+            className="btn btn-primary welcome-recheck-btn"
             onClick={() => setPanel("enterprise")}
           >
             <Globe size={16} />
-            Connect Employee Agent
+            登录员工智能体
           </button>
 
-          <button
-            className="btn btn-secondary welcome-recheck-btn"
-            onClick={() => setPanel("ssh")}
-            style={{ marginTop: 12 }}
-          >
-            <KeyRound size={16} />
-            Advanced OpenClaw
-          </button>
+          {import.meta.env.DEV && (
+            <button
+              className="btn btn-secondary welcome-recheck-btn"
+              onClick={() => setPanel("ssh")}
+              style={{ marginTop: 12 }}
+            >
+              <KeyRound size={16} />
+              Advanced OpenClaw
+            </button>
+          )}
         </>
       )}
     </div>
