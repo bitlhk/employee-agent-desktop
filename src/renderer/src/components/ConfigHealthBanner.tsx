@@ -99,6 +99,12 @@ export function ConfigHealthBanner({
 
   if (!report || report.issues.length === 0) return null;
 
+  // Only surface the banner for errors/warnings. Info-level issues remain
+  // available in Settings → Diagnose but should not interrupt chat.
+  if (report.summary.errors === 0 && report.summary.warnings === 0) {
+    return null;
+  }
+
   const dismissedAt = readDismissedReportStamp();
   if (dismissedAt >= report.ranAt) return null;
 

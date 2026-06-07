@@ -3,6 +3,7 @@ export {
   Bot,
   Brain,
   Building,
+  ChevronRight,
   ChevronDown,
   Clock,
   Compass,
