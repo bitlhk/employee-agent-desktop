@@ -319,6 +319,19 @@ type EnterpriseCapabilities = {
   agents?: Array<{ id: string; name?: string; description?: string }>;
 };
 
+type EnterpriseModelItem = {
+  id: string;
+  name?: string;
+  desc?: string;
+  isDefault?: boolean;
+};
+
+type EnterpriseModels = {
+  selected?: string;
+  defaultModel?: string;
+  models?: EnterpriseModelItem[];
+};
+
 function isEnterpriseOpenClawConnection(): boolean {
   const conn = getConnectionConfig();
   return conn.mode === "remote" && isOpenClawConnection(conn);
@@ -465,6 +478,66 @@ async function enterpriseCapabilities(): Promise<EnterpriseCapabilities> {
   return fetchEnterpriseJson<EnterpriseCapabilities>(
     "/api/desktop/capabilities",
   );
+}
+
+async function enterpriseModels(): Promise<EnterpriseModels> {
+  return fetchEnterpriseJson<EnterpriseModels>("/api/desktop/models");
+}
+
+async function enterpriseGetModelConfig(): Promise<{
+  provider: string;
+  model: string;
+  baseUrl: string;
+}> {
+  const data = await enterpriseModels();
+  return {
+    provider: "openclaw",
+    model: String(
+      data.selected || data.defaultModel || data.models?.[0]?.id || "",
+    ),
+    baseUrl: "",
+  };
+}
+
+async function enterpriseListModels(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    provider: string;
+    model: string;
+    baseUrl: string;
+    createdAt: number;
+  }>
+> {
+  const data = await enterpriseModels();
+  return (data.models || []).map((item) => ({
+    id: String(item.id || ""),
+    name: String(item.name || item.id || "模型"),
+    provider: "openclaw",
+    model: String(item.id || ""),
+    baseUrl: "",
+    createdAt: 0,
+  }));
+}
+
+async function enterpriseSetModelConfig(model: string): Promise<boolean> {
+  const conn = getConnectionConfig();
+  const token = conn.apiKey;
+  const resp = await fetch(
+    `${enterpriseControlUrl()}/api/desktop/model-select`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ modelId: model }),
+    },
+  );
+  if (!resp.ok) {
+    throw new Error(`Enterprise model select failed: HTTP ${resp.status}`);
+  }
+  return true;
 }
 
 async function enterpriseFetchRegistry(): Promise<
@@ -1055,6 +1128,7 @@ function setupIPC(): void {
 
   ipcMain.handle("get-model-config", (_event, profile?: string) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection()) return enterpriseGetModelConfig();
     if (conn.mode === "ssh" && conn.ssh)
       return sshGetModelConfig(conn.ssh, profile);
     return getModelConfig(profile);
@@ -1070,6 +1144,9 @@ function setupIPC(): void {
       profile?: string,
     ) => {
       const conn = getConnectionConfig();
+      if (isEnterpriseOpenClawConnection()) {
+        return enterpriseSetModelConfig(model);
+      }
       if (conn.mode === "ssh" && conn.ssh) {
         const prev = await sshGetModelConfig(conn.ssh, profile);
         await sshSetModelConfig(conn.ssh, provider, model, baseUrl, profile);
@@ -1805,6 +1882,7 @@ function setupIPC(): void {
   // Models
   ipcMain.handle("list-models", () => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection()) return enterpriseListModels();
     if (conn.mode === "ssh" && conn.ssh) return sshListModels(conn.ssh);
     return listModels();
   });

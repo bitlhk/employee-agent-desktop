@@ -413,6 +413,7 @@ function Chat({
                 displayModel={modelConfig.displayModel}
                 onOpen={modelConfig.reload}
                 onSelectModel={modelConfig.selectModel}
+                allowCustom={modelConfig.currentProvider !== "openclaw"}
               />
               <ContextFolderChip
                 contextFolder={contextFolder}

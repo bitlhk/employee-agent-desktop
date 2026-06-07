@@ -11,6 +11,7 @@ interface ModelPickerProps {
   displayModel: string;
   onOpen: () => void;
   onSelectModel: (provider: string, model: string, baseUrl: string) => void;
+  allowCustom?: boolean;
 }
 
 export const ModelPicker = memo(function ModelPicker({
@@ -21,6 +22,7 @@ export const ModelPicker = memo(function ModelPicker({
   displayModel,
   onOpen,
   onSelectModel,
+  allowCustom = true,
 }: ModelPickerProps): React.JSX.Element {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
@@ -71,7 +73,9 @@ export const ModelPicker = memo(function ModelPicker({
           {modelGroups.map((group) => (
             <div key={group.provider} className="chat-model-group">
               <div className="chat-model-group-label">
-                {t(group.providerLabel)}
+                {group.providerLabel.includes(".")
+                  ? t(group.providerLabel)
+                  : group.providerLabel}
               </div>
               {group.models.map((m) => {
                 const active =
@@ -90,21 +94,23 @@ export const ModelPicker = memo(function ModelPicker({
             </div>
           ))}
 
-          <div className="chat-model-group">
-            <div className="chat-model-group-label">{t("chat.custom")}</div>
-            <div className="chat-model-custom">
-              <input
-                className="chat-model-custom-input"
-                type="text"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitCustom();
-                }}
-                placeholder={t("chat.typeModelName")}
-              />
+          {allowCustom && (
+            <div className="chat-model-group">
+              <div className="chat-model-group-label">{t("chat.custom")}</div>
+              <div className="chat-model-custom">
+                <input
+                  className="chat-model-custom-input"
+                  type="text"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitCustom();
+                  }}
+                  placeholder={t("chat.typeModelName")}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

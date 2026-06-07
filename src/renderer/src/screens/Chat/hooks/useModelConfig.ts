@@ -25,7 +25,10 @@ function groupModelsByProvider(
     if (!groupMap.has(m.provider)) {
       groupMap.set(m.provider, {
         provider: m.provider,
-        providerLabel: PROVIDERS.labels[m.provider] || m.provider,
+        providerLabel:
+          m.provider === "openclaw"
+            ? "OpenClaw"
+            : PROVIDERS.labels[m.provider] || m.provider,
         models: [],
       });
     }

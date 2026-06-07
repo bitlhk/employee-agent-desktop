@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Search, Clock, Mail, Code, ChartLine, Bell } from "lucide-react";
-import icon from "../../assets/icon.png";
+import icon from "../../assets/lingxia.svg";
 import { useI18n } from "../../components/useI18n";
 
 interface Suggestion {

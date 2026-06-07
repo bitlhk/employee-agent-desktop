@@ -505,7 +505,9 @@ function sendMessageViaApi(
     model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
     messages,
     stream: true,
-    ...(!openClawMode && _resumeSessionId ? { session_id: _resumeSessionId } : {}),
+    ...(!openClawMode && _resumeSessionId
+      ? { session_id: _resumeSessionId }
+      : {}),
   });
 
   // Encode the body up-front into a Buffer so we can:
@@ -527,12 +529,18 @@ function sendMessageViaApi(
     ...getRemoteAuthHeader(),
   };
   let sessionId =
-    _resumeSessionId || (("Authorization" in headers || openClawMode) ? `desk-${Date.now()}-${randomUUID()}` : "");
+    _resumeSessionId ||
+    ("Authorization" in headers || openClawMode
+      ? `desk-${Date.now()}-${randomUUID()}`
+      : "");
   if (openClawMode) {
     const sessionLabel = safeOpenClawSessionLabel(sessionId);
     headers["x-openclaw-agent-id"] = openClawAgentId;
     headers["x-openclaw-session-key"] =
       `agent:${openClawAgentId}:main:${sessionLabel}`;
+    if (mc.model?.trim()) {
+      headers["x-openclaw-model"] = mc.model.trim();
+    }
     console.log("[openclaw] chat agentId=", openClawAgentId);
   }
   // Local API server key (API_SERVER_KEY in the profile's .env /
