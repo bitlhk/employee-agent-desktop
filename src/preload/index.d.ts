@@ -380,6 +380,19 @@ interface HermesAPI {
 
   // Platform toggles
   getPlatformEnabled: (profile?: string) => Promise<Record<string, boolean>>;
+  getPlatformStatus: (
+    profile?: string,
+  ) => Promise<
+    Record<
+      string,
+      {
+        key: string;
+        status: "connected" | "not_connected" | "not_configured" | "unsupported";
+        label?: string;
+        detail?: string;
+      }
+    >
+  >;
   setPlatformEnabled: (
     platform: string,
     enabled: boolean,

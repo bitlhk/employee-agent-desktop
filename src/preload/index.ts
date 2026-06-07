@@ -479,6 +479,19 @@ const hermesAPI = {
   // Platform toggles
   getPlatformEnabled: (profile?: string): Promise<Record<string, boolean>> =>
     ipcRenderer.invoke("get-platform-enabled", profile),
+  getPlatformStatus: (
+    profile?: string,
+  ): Promise<
+    Record<
+      string,
+      {
+        key: string;
+        status: "connected" | "not_connected" | "not_configured" | "unsupported";
+        label?: string;
+        detail?: string;
+      }
+    >
+  > => ipcRenderer.invoke("get-platform-status", profile),
   setPlatformEnabled: (
     platform: string,
     enabled: boolean,

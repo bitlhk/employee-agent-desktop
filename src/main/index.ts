@@ -332,6 +332,13 @@ type EnterpriseModels = {
   models?: EnterpriseModelItem[];
 };
 
+type EnterpriseChannelStatus = {
+  key: string;
+  status: "connected" | "not_connected" | "not_configured" | "unsupported";
+  label?: string;
+  detail?: string;
+};
+
 function isEnterpriseOpenClawConnection(): boolean {
   const conn = getConnectionConfig();
   return conn.mode === "remote" && isOpenClawConnection(conn);
@@ -482,6 +489,19 @@ async function enterpriseCapabilities(): Promise<EnterpriseCapabilities> {
 
 async function enterpriseModels(): Promise<EnterpriseModels> {
   return fetchEnterpriseJson<EnterpriseModels>("/api/desktop/models");
+}
+
+async function enterpriseChannels(): Promise<
+  Record<string, EnterpriseChannelStatus>
+> {
+  const data = await fetchEnterpriseJson<{ channels?: EnterpriseChannelStatus[] }>(
+    "/api/desktop/channels",
+  );
+  const result: Record<string, EnterpriseChannelStatus> = {};
+  for (const channel of data.channels || []) {
+    if (channel?.key) result[channel.key] = channel;
+  }
+  return result;
 }
 
 async function enterpriseGetModelConfig(): Promise<{
@@ -1619,6 +1639,25 @@ function setupIPC(): void {
     if (conn.mode === "ssh" && conn.ssh)
       return sshGetPlatformEnabled(conn.ssh, profile);
     return getPlatformEnabled(profile);
+  });
+  ipcMain.handle("get-platform-status", async (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection()) {
+      return enterpriseChannels();
+    }
+    const conn = getConnectionConfig();
+    const enabled =
+      conn.mode === "ssh" && conn.ssh
+        ? await sshGetPlatformEnabled(conn.ssh, profile)
+        : getPlatformEnabled(profile);
+    return Object.fromEntries(
+      Object.entries(enabled).map(([key, value]) => [
+        key,
+        {
+          key,
+          status: value ? "connected" : "not_configured",
+        },
+      ]),
+    );
   });
   ipcMain.handle(
     "set-platform-enabled",

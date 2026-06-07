@@ -3,12 +3,22 @@ import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import BrandLogo from "../../components/common/BrandLogo";
 
+type PlatformStatus = {
+  key: string;
+  status: "connected" | "not_connected" | "not_configured" | "unsupported";
+  label?: string;
+  detail?: string;
+};
+
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   const { t } = useI18n();
   const [gatewayRunning, setGatewayRunning] = useState(false);
   const [env, setEnv] = useState<Record<string, string>>({});
   const [platformEnabled, setPlatformEnabled] = useState<
     Record<string, boolean>
+  >({});
+  const [platformStatus, setPlatformStatus] = useState<
+    Record<string, PlatformStatus>
   >({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
@@ -26,6 +36,8 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     setGatewayRunning(gwStatus);
     const platforms = await window.hermesAPI.getPlatformEnabled(profile);
     setPlatformEnabled(platforms);
+    const statuses = await window.hermesAPI.getPlatformStatus(profile);
+    setPlatformStatus(statuses);
   }, [profile]);
 
   useEffect(() => {
@@ -71,8 +83,26 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     platformStatusTimeoutRef.current = setTimeout(async () => {
       const status = await window.hermesAPI.gatewayStatus();
       setGatewayRunning(status);
+      const statuses = await window.hermesAPI.getPlatformStatus(profile);
+      setPlatformStatus(statuses);
       platformStatusTimeoutRef.current = null;
     }, 3000);
+  }
+
+  function statusForPlatform(platformKey: string): PlatformStatus {
+    return (
+      platformStatus[platformKey] || {
+        key: platformKey,
+        status: platformEnabled[platformKey] ? "connected" : "not_configured",
+      }
+    );
+  }
+
+  function statusLabel(status: PlatformStatus): string {
+    if (status.status === "connected") return "已连接";
+    if (status.status === "not_connected") return "未连接";
+    if (status.status === "unsupported") return "暂未接入";
+    return "未配置";
   }
 
   async function handleBlur(key: string): Promise<void> {
@@ -138,17 +168,26 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
 
       <div className="settings-section">
         <div className="settings-section-title">{t("gateway.platforms")}</div>
-        {GATEWAY_PLATFORMS.map((platform) => (
+        {GATEWAY_PLATFORMS.map((platform) => {
+          const status = statusForPlatform(platform.key);
+          return (
           <div key={platform.key} className="settings-platform-card">
             <div className="settings-platform-header">
               <div className="settings-platform-left">
                 <BrandLogo provider={platform.key} size={28} />
                 <div className="settings-platform-info">
-                  <span className="settings-platform-label">
-                    {t(platform.label)}
-                  </span>
+                  <div className="settings-platform-title-row">
+                    <span className="settings-platform-label">
+                      {status.label || t(platform.label)}
+                    </span>
+                    <span
+                      className={`settings-platform-status ${status.status}`}
+                    >
+                      {statusLabel(status)}
+                    </span>
+                  </div>
                   <span className="settings-platform-desc">
-                    {t(platform.description)}
+                    {status.detail || t(platform.description)}
                   </span>
                 </div>
               </div>
@@ -210,7 +249,8 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {otherSections.map((section) => (

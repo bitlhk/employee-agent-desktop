@@ -33,6 +33,7 @@ import dingtalkLogo from "../../assets/logos/dingtalk.svg";
 import larkLogo from "../../assets/logos/lark.svg";
 import wecomLogo from "../../assets/logos/wecom.svg";
 import wechatLogo from "../../assets/logos/wechat.svg";
+import qqbotLogo from "../../assets/logos/qqbot.svg";
 import webhookLogo from "../../assets/logos/webhook.svg";
 import homeAssistantLogo from "../../assets/logos/home-assist.svg";
 
@@ -71,6 +72,7 @@ type BrandKey =
   | "feishu"
   | "wecom"
   | "weixin"
+  | "qqbot"
   | "webhooks"
   | "home_assistant"
   | "unknown";
@@ -110,6 +112,7 @@ const LOGOS: Record<Exclude<BrandKey, "unknown">, string> = {
   feishu: larkLogo,
   wecom: wecomLogo,
   weixin: wechatLogo,
+  qqbot: qqbotLogo,
   webhooks: webhookLogo,
   home_assistant: homeAssistantLogo,
 };
@@ -148,6 +151,7 @@ function detectBrand(provider?: string, modelId?: string): BrandKey {
   if (/(feishu|lark)/.test(haystack)) return "feishu";
   if (/wecom/.test(haystack)) return "wecom";
   if (/(weixin|wechat)/.test(haystack)) return "weixin";
+  if (/qqbot/.test(haystack)) return "qqbot";
   if (/webhook/.test(haystack)) return "webhooks";
   if (/(home_assistant|home-assist|homeassistant)/.test(haystack))
     return "home_assistant";

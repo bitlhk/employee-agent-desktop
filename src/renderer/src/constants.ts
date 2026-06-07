@@ -783,6 +783,24 @@ export const GATEWAY_SECTIONS: SectionDef[] = [
         hint: "constants.weixinTokenHint",
       },
       {
+        key: "QQ_APP_ID",
+        label: "constants.qqAppId",
+        type: "text",
+        hint: "constants.qqAppIdHint",
+      },
+      {
+        key: "QQ_CLIENT_SECRET",
+        label: "constants.qqClientSecret",
+        type: "password",
+        hint: "constants.qqClientSecretHint",
+      },
+      {
+        key: "QQ_ALLOWED_USERS",
+        label: "constants.qqAllowedUsers",
+        type: "text",
+        hint: "constants.qqAllowedUsersHint",
+      },
+      {
         key: "WEBHOOK_SECRET",
         label: "constants.webhookSecret",
         type: "password",
@@ -905,6 +923,12 @@ export const GATEWAY_PLATFORMS: PlatformDef[] = [
     label: "constants.platformWeixin",
     description: "constants.platformWeixinDesc",
     fields: ["WEIXIN_BOT_TOKEN"],
+  },
+  {
+    key: "qqbot",
+    label: "constants.platformQqBot",
+    description: "constants.platformQqBotDesc",
+    fields: ["QQ_APP_ID", "QQ_CLIENT_SECRET", "QQ_ALLOWED_USERS"],
   },
   {
     key: "webhooks",

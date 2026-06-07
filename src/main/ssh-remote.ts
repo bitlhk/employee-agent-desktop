@@ -1806,6 +1806,7 @@ const SSH_SUPPORTED_PLATFORMS = [
   "feishu",
   "wecom",
   "weixin",
+  "qqbot",
   "webhooks",
   "home_assistant",
 ];

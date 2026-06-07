@@ -4661,6 +4661,47 @@ body {
   color: var(--text-primary);
 }
 
+.settings-platform-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-platform-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.settings-platform-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.settings-platform-status.connected {
+  color: var(--success);
+}
+
+.settings-platform-status.connected::before {
+  background: var(--success);
+}
+
+.settings-platform-status.not_connected::before {
+  background: var(--warning);
+}
+
+.settings-platform-status.unsupported {
+  color: var(--text-muted);
+}
+
 .settings-platform-desc {
   font-size: 12px;
   color: var(--text-muted);

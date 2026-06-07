@@ -1234,6 +1234,9 @@ const PLATFORM_RULES: Record<string, PlatformRule> = {
       !!e.MATRIX_ACCESS_TOKEN?.trim() || !!e.MATRIX_PASSWORD?.trim(),
   },
   mattermost: { envCheck: (e) => !!e.MATTERMOST_TOKEN?.trim() },
+  qqbot: {
+    envCheck: (e) => !!e.QQ_APP_ID?.trim() && !!e.QQ_CLIENT_SECRET?.trim(),
+  },
   home_assistant: {
     envCheck: (e) => !!e.HASS_TOKEN?.trim(),
     configKey: "homeassistant",
