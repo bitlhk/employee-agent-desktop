@@ -286,6 +286,39 @@ type EnterpriseDesktopHistoryItem = {
   timestamp?: number;
 };
 
+type EnterpriseCapabilitySkill = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  path?: string;
+  source?: string;
+  marketId?: number;
+  installed?: boolean;
+};
+
+type EnterpriseCapabilityToolGroup = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  status?: string;
+  availableCount?: number;
+  configuredCount?: number;
+  serverCount?: number;
+};
+
+type EnterpriseCapabilities = {
+  skills?: {
+    installed?: EnterpriseCapabilitySkill[];
+    market?: EnterpriseCapabilitySkill[];
+  };
+  tools?: {
+    items?: EnterpriseCapabilityToolGroup[];
+  };
+  agents?: Array<{ id: string; name?: string; description?: string }>;
+};
+
 function isEnterpriseOpenClawConnection(): boolean {
   const conn = getConnectionConfig();
   return conn.mode === "remote" && isOpenClawConnection(conn);
@@ -316,6 +349,18 @@ async function fetchEnterpriseJson<T>(path: string): Promise<T> {
     throw new Error(`Enterprise desktop request failed: HTTP ${resp.status}`);
   }
   return (await resp.json()) as T;
+}
+
+async function fetchEnterpriseText(path: string): Promise<string> {
+  const conn = getConnectionConfig();
+  const token = conn.apiKey;
+  const resp = await fetch(`${enterpriseControlUrl()}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!resp.ok) {
+    throw new Error(`Enterprise desktop request failed: HTTP ${resp.status}`);
+  }
+  return resp.text();
 }
 
 function mapEnterpriseSession(session: EnterpriseDesktopSession): {
@@ -414,6 +459,129 @@ async function enterpriseSearchSessions(
       snippet: buildSearchSnippet(session, query),
     };
   });
+}
+
+async function enterpriseCapabilities(): Promise<EnterpriseCapabilities> {
+  return fetchEnterpriseJson<EnterpriseCapabilities>(
+    "/api/desktop/capabilities",
+  );
+}
+
+async function enterpriseFetchRegistry(): Promise<
+  Awaited<ReturnType<typeof fetchRegistry>>
+> {
+  const data = await enterpriseCapabilities();
+  const configuredTools = (data.tools?.items || []).filter(
+    (item) =>
+      Number(item.configuredCount || 0) > 0 ||
+      Number(item.availableCount || 0) > 0,
+  );
+  return {
+    skills: (data.skills?.market || []).map((item) => ({
+      id: String(item.id || item.marketId || ""),
+      name: String(item.name || item.id || "技能"),
+      description: String(item.description || ""),
+      category: item.category,
+      source: item.marketId ? String(item.marketId) : item.source,
+    })),
+    mcps: configuredTools.map((item) => ({
+      id: String(item.id || ""),
+      name: String(item.name || item.id || "工具"),
+      description: String(item.description || ""),
+      category: item.category || "工具",
+      tags: [
+        item.status,
+        item.availableCount != null
+          ? `${item.availableCount}/${item.serverCount || 0}`
+          : "",
+      ].filter(Boolean) as string[],
+    })),
+    agents: [],
+    workflows: [],
+  };
+}
+
+async function enterpriseListInstalledSkills(): Promise<
+  Array<{ name: string; category: string; description: string; path: string }>
+> {
+  const data = await enterpriseCapabilities();
+  return (data.skills?.installed || []).map((item) => ({
+    name: String(item.name || item.id || "技能"),
+    category: String(item.category || "已安装"),
+    description: String(item.description || ""),
+    path: `employee-skill:${item.id}`,
+  }));
+}
+
+async function enterpriseListInstalledRegistry(): Promise<{
+  skills: string[];
+  mcps: string[];
+  workflows: string[];
+}> {
+  const data = await enterpriseCapabilities();
+  const installedSkills = data.skills?.installed || [];
+  const configuredTools = (data.tools?.items || []).filter(
+    (item) =>
+      Number(item.configuredCount || 0) > 0 ||
+      Number(item.availableCount || 0) > 0,
+  );
+  return {
+    skills: installedSkills.flatMap((item) =>
+      [item.id, item.name].filter(Boolean).map(String),
+    ),
+    mcps: configuredTools.map((item) => String(item.id || "")),
+    workflows: [],
+  };
+}
+
+async function enterpriseRegistryDetail(
+  _kind: RegistryKind,
+  item: RegistryItem,
+): Promise<Awaited<ReturnType<typeof fetchRegistryDetail>>> {
+  return {
+    description: item.description || "",
+    rows: [
+      ...(item.category ? [{ label: "类别", value: item.category }] : []),
+      ...(item.tags?.length ? [{ label: "状态", chips: item.tags }] : []),
+    ],
+  };
+}
+
+async function enterpriseInstallRegistryItem(
+  kind: RegistryKind,
+  item: RegistryItem,
+): Promise<{ success: boolean; error?: string }> {
+  if (kind !== "skills") {
+    return { success: false, error: "当前桌面版仅支持安装技能市场技能" };
+  }
+  const marketId = Number(item.source || item.id || 0);
+  if (!Number.isFinite(marketId) || marketId <= 0) {
+    return { success: false, error: "缺少技能市场 ID" };
+  }
+  const conn = getConnectionConfig();
+  const token = conn.apiKey;
+  const resp = await fetch(
+    `${enterpriseControlUrl()}/api/desktop/skill-market/install`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ marketId }),
+    },
+  );
+  if (!resp.ok) {
+    let message = `安装失败：HTTP ${resp.status}`;
+    try {
+      const err = (await resp.json()) as { error?: string };
+      if (err.error) message = err.error;
+    } catch {
+      /* ignore */
+    }
+    return { success: false, error: message };
+  }
+  return { success: true };
 }
 
 ipcMain.handle(
@@ -1513,17 +1681,26 @@ function setupIPC(): void {
   // Skills
   ipcMain.handle("list-installed-skills", (_event, profile?: string) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseListInstalledSkills();
     if (conn.mode === "ssh" && conn.ssh)
       return sshListInstalledSkills(conn.ssh, profile);
     return listInstalledSkills(profile);
   });
   ipcMain.handle("list-bundled-skills", () => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection()) return [];
     if (conn.mode === "ssh" && conn.ssh) return sshListBundledSkills(conn.ssh);
     return listBundledSkills();
   });
   ipcMain.handle("get-skill-content", (_event, skillPath: string) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection()) {
+      const skillId = String(skillPath || "").replace(/^employee-skill:/, "");
+      return fetchEnterpriseText(
+        `/api/desktop/skill-content?skillId=${encodeURIComponent(skillId)}`,
+      );
+    }
     if (conn.mode === "ssh" && conn.ssh)
       return sshGetSkillContent(conn.ssh, skillPath);
     return getSkillContent(skillPath);
@@ -1967,21 +2144,30 @@ function setupIPC(): void {
   );
 
   // Discover marketplace (community registry)
-  ipcMain.handle("registry-fetch", (_event, force?: boolean) =>
-    fetchRegistry(!!force),
-  );
-  ipcMain.handle("registry-list-installed", (_event, profile?: string) =>
-    listInstalledRegistry(profile),
-  );
+  ipcMain.handle("registry-fetch", (_event, force?: boolean) => {
+    if (isEnterpriseOpenClawConnection()) return enterpriseFetchRegistry();
+    return fetchRegistry(!!force);
+  });
+  ipcMain.handle("registry-list-installed", (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseListInstalledRegistry();
+    return listInstalledRegistry(profile);
+  });
   ipcMain.handle(
     "registry-detail",
-    (_event, kind: RegistryKind, item: RegistryItem) =>
-      fetchRegistryDetail(kind, item),
+    (_event, kind: RegistryKind, item: RegistryItem) => {
+      if (isEnterpriseOpenClawConnection())
+        return enterpriseRegistryDetail(kind, item);
+      return fetchRegistryDetail(kind, item);
+    },
   );
   ipcMain.handle(
     "registry-install",
-    (_event, kind: RegistryKind, item: RegistryItem, profile?: string) =>
-      installRegistryItem(kind, item, profile),
+    (_event, kind: RegistryKind, item: RegistryItem, profile?: string) => {
+      if (isEnterpriseOpenClawConnection())
+        return enterpriseInstallRegistryItem(kind, item);
+      return installRegistryItem(kind, item, profile);
+    },
   );
 
   // Memory providers
