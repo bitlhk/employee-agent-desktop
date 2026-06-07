@@ -251,7 +251,13 @@ export function sendMessageViaOpenClawGatewayWs(
 
     if (payload._event === "agent_status" || payload.__status) {
       const label = stringValue(payload.label) || stringValue(payload.__status);
-      if (label) cb.onToolProgress?.(label);
+      if (
+        label &&
+        !/^(已连接|connected)\b/i.test(label) &&
+        !/OpenClaw.*(处理请求|processing request)/i.test(label)
+      ) {
+        cb.onChunk(label);
+      }
       return;
     }
 
