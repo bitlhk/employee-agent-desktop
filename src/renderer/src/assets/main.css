@@ -1488,9 +1488,22 @@ body {
 }
 
 .profile-menu-enterprise {
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
   overflow: hidden;
+}
+
+.profile-menu-enterprise .profile-menu-list {
+  overflow: hidden;
+  max-height: none;
+}
+
+.profile-menu-enterprise .profile-menu-item,
+.profile-menu-enterprise .profile-menu-manage {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @keyframes profileMenuIn {
