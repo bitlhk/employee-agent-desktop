@@ -113,9 +113,14 @@ export function isDesktopConnectionConfigured(): boolean {
   return readDesktopConfig().employeeAgentDesktop === true;
 }
 
+export function isEnterpriseOpenClawUrl(url: string): boolean {
+  return String(url || "").includes("/api/desktop/openclaw");
+}
+
 export function isOpenClawConnection(config = getConnectionConfig()): boolean {
   return (
     Boolean(config.openClawDirect) ||
+    (config.mode === "remote" && isEnterpriseOpenClawUrl(config.remoteUrl)) ||
     (config.mode === "ssh" && Number(config.ssh.remotePort) === 18789)
   );
 }
@@ -136,7 +141,9 @@ export function getPublicConnectionConfig(): PublicConnectionConfig {
     hasApiKey: config.apiKey.length > 0,
     apiKeyLength: config.apiKey.length,
     openClawAgentId: getOpenClawAgentId(),
-    openClawDirect: config.openClawDirect,
+    openClawDirect:
+      config.openClawDirect ||
+      (config.mode === "remote" && isEnterpriseOpenClawUrl(config.remoteUrl)),
     ssh: config.ssh,
   };
 }
@@ -161,7 +168,9 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
   data.remoteApiKey = config.apiKey;
-  data.openClawDirect = config.openClawDirect;
+  data.openClawDirect =
+    config.openClawDirect ||
+    (config.mode === "remote" && isEnterpriseOpenClawUrl(config.remoteUrl));
   if (config.mode === "ssh") {
     data.sshConfig = config.ssh;
   }
