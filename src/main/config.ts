@@ -94,7 +94,7 @@ export function getConnectionConfig(): ConnectionConfig {
   const data = readDesktopConfig();
   const ssh = (data.sshConfig as Partial<SshConnectionConfig>) ?? {};
   return {
-    mode: (data.connectionMode as "local" | "remote" | "ssh") || "ssh",
+    mode: (data.connectionMode as "local" | "remote" | "ssh") || "local",
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
     openClawDirect: Boolean(data.openClawDirect),
@@ -107,6 +107,10 @@ export function getConnectionConfig(): ConnectionConfig {
       localPort: (ssh.localPort as number) || OPENCLAW_DEFAULT_LOCAL_PORT,
     },
   };
+}
+
+export function isDesktopConnectionConfigured(): boolean {
+  return readDesktopConfig().employeeAgentDesktop === true;
 }
 
 export function isOpenClawConnection(config = getConnectionConfig()): boolean {
@@ -157,6 +161,7 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
   data.remoteApiKey = config.apiKey;
+  data.openClawDirect = config.openClawDirect;
   if (config.mode === "ssh") {
     data.sshConfig = config.ssh;
   }

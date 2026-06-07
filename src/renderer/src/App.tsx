@@ -41,7 +41,7 @@ function App(): React.JSX.Element {
 
       if (!conn.configured) {
         next = "welcome";
-      } else if (conn.mode === "ssh" && conn.ssh) {
+      } else if (conn.mode === "ssh" && conn.ssh && !conn.openClawDirect) {
         // Start (or ensure) the SSH tunnel, then go straight to main
         try {
           await window.hermesAPI.startSshTunnel();
@@ -50,7 +50,10 @@ function App(): React.JSX.Element {
           error = `SSH tunnel failed to start: ${(tunnelErr as Error).message}`;
           next = "welcome";
         }
-      } else if (conn.mode === "remote" && conn.remoteUrl) {
+      } else if (
+        (conn.mode === "remote" || conn.openClawDirect) &&
+        conn.remoteUrl
+      ) {
         const ok = await window.hermesAPI.testRemoteConnection(conn.remoteUrl);
         if (ok) {
           next = "main";

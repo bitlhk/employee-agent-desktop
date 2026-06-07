@@ -98,6 +98,7 @@ import {
   addCredentialPoolEntry,
   getConnectionConfig,
   getPublicConnectionConfig,
+  isDesktopConnectionConfigured,
   isOpenClawConnection,
   resolveConnectionApiKeyUpdate,
   setConnectionConfig,
@@ -827,6 +828,7 @@ function setupIPC(): void {
           remoteUrl,
           apiKey,
         ),
+        openClawDirect: false,
       });
       return true;
     },
@@ -855,6 +857,7 @@ function setupIPC(): void {
           "",
           apiKey,
         ),
+        openClawDirect: false,
         ssh: { host, port, username, keyPath, remotePort, localPort },
       });
       if (openClawAgentId !== undefined) {
@@ -2062,7 +2065,12 @@ app.whenReady().then(() => {
 
   // Auto-start SSH tunnel if configured
   const conn = getConnectionConfig();
-  if (conn.mode === "ssh" && conn.ssh.host) {
+  if (
+    isDesktopConnectionConfigured() &&
+    conn.mode === "ssh" &&
+    !conn.openClawDirect &&
+    conn.ssh.host
+  ) {
     (async () => {
       const openClawMode = isOpenClawConnection(conn);
       if (!openClawMode && !(await sshGatewayStatus(conn.ssh))) {
