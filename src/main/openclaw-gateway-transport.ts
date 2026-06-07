@@ -94,9 +94,34 @@ function websocketUrlWithParams(baseUrl: string, params: Record<string, string>)
   return url.toString();
 }
 
+function deriveOpenClawWsUrl(remoteUrl: string): string {
+  const trimmed = remoteUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const url = new URL(trimmed);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    if (url.pathname.endsWith("/api/desktop/openclaw")) {
+      url.pathname = `${url.pathname}/ws`;
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function getEffectiveOpenClawWsUrl(): string {
+  const configured = getOpenClawWsUrl();
+  if (configured) return configured;
+  const conn = getConnectionConfig();
+  return deriveOpenClawWsUrl(conn.remoteUrl);
+}
+
 export function hasOpenClawGatewayWsTransport(): boolean {
   const conn = getConnectionConfig();
-  return Boolean(conn.openClawDirect && getOpenClawWsUrl());
+  return Boolean(conn.openClawDirect && getEffectiveOpenClawWsUrl());
 }
 
 export function sendMessageViaOpenClawGatewayWs(
@@ -105,7 +130,7 @@ export function sendMessageViaOpenClawGatewayWs(
   resumeSessionId?: string,
 ): OpenClawGatewayChatHandle {
   const conn = getConnectionConfig();
-  const wsBaseUrl = getOpenClawWsUrl();
+  const wsBaseUrl = getEffectiveOpenClawWsUrl();
   const agentId = getOpenClawAgentId();
   const sessionId = resumeSessionId || `desk-${Date.now()}-${randomUUID()}`;
   const sessionLabel = safeSessionLabel(sessionId);
@@ -155,6 +180,11 @@ export function sendMessageViaOpenClawGatewayWs(
   };
 
   try {
+    console.log("[openclaw-ws] using gateway", {
+      agentId,
+      hasToken: Boolean(accessToken),
+      url: wsBaseUrl.replace(/[?].*$/, ""),
+    });
     ws = new WebSocketCtor(
       websocketUrlWithParams(wsBaseUrl, {
         access_token: accessToken,
