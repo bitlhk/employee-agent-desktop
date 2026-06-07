@@ -79,7 +79,12 @@ function toolEventFromPayload(payload: Record<string, unknown>): ChatToolEvent |
       status: payload.is_error ? "failed" : "completed",
       label: name,
       preview: name,
-      result: toolResultText(payload),
+      // OpenClaw Gateway tool_result payloads can contain assistant-facing
+      // natural language, while Hermes renders `result` as an expanded tool
+      // body. For the desktop UI, successful tool results should only close the
+      // running tool card; the final answer continues to stream as assistant
+      // text. Keep failed output visible for debugging.
+      result: payload.is_error ? toolResultText(payload) : "",
     };
   }
 
