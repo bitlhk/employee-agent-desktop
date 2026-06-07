@@ -1103,6 +1103,12 @@ body {
   animation: profileMenuIn 0.12s ease;
 }
 
+.profile-menu-enterprise {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 @keyframes profileMenuIn {
   from {
     opacity: 0;

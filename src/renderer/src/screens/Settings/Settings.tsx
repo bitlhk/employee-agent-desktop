@@ -935,7 +935,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
 
       <div className="settings-section">
         <div className="settings-section-title">
-          {t("settings.sections.appearance")}
+          {enterpriseMode ? "主题" : t("settings.sections.appearance")}
         </div>
         <div className="settings-field">
           <label className="settings-field-label">
@@ -971,44 +971,46 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
         </div>
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-title">
-          {t("settings.sections.privacy")}
-        </div>
-        <div className="settings-field">
-          <label className="settings-field-label">
-            {t("settings.analytics.label")}
-            <label
-              className="tools-toggle"
-              style={{ marginLeft: 12, verticalAlign: "middle" }}
-            >
-              <input
-                type="checkbox"
-                checked={analyticsEnabled}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setAnalyticsEnabled(enabled);
-                  setAnalyticsConsent(enabled);
-                }}
-              />
-              <span className="tools-toggle-track" />
-            </label>
-          </label>
-          <div className="settings-field-hint">
-            {t("settings.analytics.hint")}
+      {!enterpriseMode && (
+        <div className="settings-section">
+          <div className="settings-section-title">
+            {t("settings.sections.privacy")}
           </div>
-          <ul
-            className="settings-field-hint"
-            style={{ paddingLeft: "1.25em", marginTop: 4 }}
-          >
-            <li>{t("settings.analytics.disclosure.uuid")}</li>
-            <li>{t("settings.analytics.disclosure.platform")}</li>
-            <li>{t("settings.analytics.disclosure.navigation")}</li>
-            <li>{t("settings.analytics.disclosure.endpoint")}</li>
-            <li>{t("settings.analytics.disclosure.notCollected")}</li>
-          </ul>
+          <div className="settings-field">
+            <label className="settings-field-label">
+              {t("settings.analytics.label")}
+              <label
+                className="tools-toggle"
+                style={{ marginLeft: 12, verticalAlign: "middle" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={analyticsEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setAnalyticsEnabled(enabled);
+                    setAnalyticsConsent(enabled);
+                  }}
+                />
+                <span className="tools-toggle-track" />
+              </label>
+            </label>
+            <div className="settings-field-hint">
+              {t("settings.analytics.hint")}
+            </div>
+            <ul
+              className="settings-field-hint"
+              style={{ paddingLeft: "1.25em", marginTop: 4 }}
+            >
+              <li>{t("settings.analytics.disclosure.uuid")}</li>
+              <li>{t("settings.analytics.disclosure.platform")}</li>
+              <li>{t("settings.analytics.disclosure.navigation")}</li>
+              <li>{t("settings.analytics.disclosure.endpoint")}</li>
+              <li>{t("settings.analytics.disclosure.notCollected")}</li>
+            </ul>
+          </div>
         </div>
-      </div>
+      )}
 
       {!enterpriseMode && (
         <div className="settings-section">

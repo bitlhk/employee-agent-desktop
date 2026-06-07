@@ -99,7 +99,10 @@ export default function ProfileSwitcher({
   return (
     <div className="profile-switcher" ref={rootRef}>
       {open && (
-        <div className="profile-menu" role="menu">
+        <div
+          className={`profile-menu ${enterpriseMode ? "profile-menu-enterprise" : ""}`}
+          role="menu"
+        >
           {enterpriseMode ? (
             <div className="profile-menu-list">
               <div className="profile-menu-item active profile-menu-item-static">
