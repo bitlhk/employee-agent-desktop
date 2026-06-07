@@ -316,11 +316,40 @@ export const LOCAL_PRESETS: LocalPreset[] = [
 
 // ── Theme ───────────────────────────────────────────────
 
+export type ThemeAppearance = "dark" | "light";
+
+export interface ThemeDef {
+  /** Value written to localStorage and the `data-theme` attribute. */
+  id: string;
+  /** Display name shown in the picker. */
+  name: string;
+  /** Whether the palette is dark or light. */
+  appearance: ThemeAppearance;
+}
+
+export const THEMES: ThemeDef[] = [
+  { id: "dark", name: "Dark", appearance: "dark" },
+  { id: "light", name: "Light", appearance: "light" },
+  { id: "dracula", name: "Dracula", appearance: "dark" },
+  { id: "nord", name: "Nord", appearance: "dark" },
+  { id: "one-dark", name: "One Dark", appearance: "dark" },
+  { id: "github-dark", name: "GitHub Dark", appearance: "dark" },
+  { id: "monokai", name: "Monokai", appearance: "dark" },
+  { id: "solarized-dark", name: "Solarized Dark", appearance: "dark" },
+  { id: "gruvbox-dark", name: "Gruvbox Dark", appearance: "dark" },
+  { id: "tokyo-night", name: "Tokyo Night", appearance: "dark" },
+  { id: "github-light", name: "GitHub Light", appearance: "light" },
+  { id: "solarized-light", name: "Solarized Light", appearance: "light" },
+];
+
 export const THEME_OPTIONS = [
   { value: "system" as const, label: "constants.themeSystem" },
   { value: "light" as const, label: "constants.themeLight" },
   { value: "dark" as const, label: "constants.themeDark" },
 ];
+
+export const DEFAULT_DARK_THEME = "dark";
+export const DEFAULT_LIGHT_THEME = "light";
 
 export const THEME_STORAGE_KEY = "hermes-theme";
 

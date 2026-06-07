@@ -18,10 +18,8 @@ interface ProfileSwitcherProps {
   onSwitch: (name: string) => void;
   /** Open the full Profiles management screen. */
   onManage: () => void;
-  /** Enterprise mode uses Employee Agent identity instead of Hermes profiles. */
-  enterpriseMode?: boolean;
-  /** OpenClaw runtime agent id returned by the Employee Agent control plane. */
-  enterpriseAgentId?: string;
+  /** Render as an icon-only sidebar footer affordance. */
+  compact?: boolean;
 }
 
 /**
@@ -32,8 +30,7 @@ export default function ProfileSwitcher({
   activeProfile,
   onSwitch,
   onManage,
-  enterpriseMode = false,
-  enterpriseAgentId = "",
+  compact = false,
 }: ProfileSwitcherProps): React.JSX.Element {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -49,12 +46,17 @@ export default function ProfileSwitcher({
       });
   }, []);
 
+  // Load once on mount so the sidebar trigger shows the correct gateway
+  // status immediately, without requiring the user to open the menu first.
+  useEffect(() => {
+    load();
+  }, [load]);
+
   // Refresh the list each time the menu opens — model/skill counts and the
   // gateway-running dot can change while the app is open.
   useEffect(() => {
-    if (enterpriseMode) return;
     if (open) load();
-  }, [enterpriseMode, open, load]);
+  }, [open, load]);
 
   // Dismiss on outside click or Escape.
   useEffect(() => {
@@ -75,15 +77,11 @@ export default function ProfileSwitcher({
     };
   }, [open]);
 
-  const label = enterpriseMode
-    ? "Employee Agent"
-    : activeProfile === "default"
-      ? t("common.appName")
-      : activeProfile;
+  const label =
+    activeProfile === "default" ? t("common.appName") : activeProfile;
   const activeRunning = profiles.find(
     (p) => p.name === activeProfile,
   )?.gatewayRunning;
-  const enterpriseMeta = enterpriseAgentId || "未获取到 Agent ID";
 
   async function handleSelect(name: string): Promise<void> {
     setOpen(false);
@@ -97,65 +95,52 @@ export default function ProfileSwitcher({
   }
 
   return (
-    <div className="profile-switcher" ref={rootRef}>
+    <div
+      className={`profile-switcher ${compact ? "compact" : ""}`}
+      ref={rootRef}
+    >
       {open && (
-        <div
-          className={`profile-menu ${enterpriseMode ? "profile-menu-enterprise" : ""}`}
-          role="menu"
-        >
-          {enterpriseMode ? (
-            <div className="profile-menu-list">
-              <div className="profile-menu-item active profile-menu-item-static">
-                <Bot size={16} className="profile-icon running" aria-hidden />
-                <span className="profile-menu-info">
-                  <span className="profile-menu-name">Employee Agent</span>
-                  <span className="profile-menu-meta">{enterpriseMeta}</span>
-                </span>
-                <Check size={16} className="profile-menu-check" />
-              </div>
-            </div>
-          ) : (
-            <div className="profile-menu-list">
-              {profiles.map((p) => {
-                const isActive = p.name === activeProfile;
-                const meta = [
-                  p.model || t("agents.noModel"),
-                  t("agents.skillsCount", { count: p.skillCount }),
-                ].join(" · ");
-                return (
-                  <button
-                    key={p.name}
-                    className={`profile-menu-item ${isActive ? "active" : ""}`}
-                    role="menuitemradio"
-                    aria-checked={isActive}
-                    onClick={() => handleSelect(p.name)}
-                  >
-                    <Bot
-                      size={16}
-                      className={`profile-icon ${
-                        p.gatewayRunning ? "running" : ""
-                      }`}
-                      aria-hidden
-                    />
-                    <span className="profile-menu-info">
-                      <span className="profile-menu-name">
-                        {p.name}
-                        {p.isDefault && (
-                          <span className="profile-menu-tag">
-                            {t("agents.defaultTag")}
-                          </span>
-                        )}
-                      </span>
-                      <span className="profile-menu-meta">{meta}</span>
+        <div className="profile-menu" role="menu">
+          <div className="profile-menu-list">
+            {profiles.map((p) => {
+              const isActive = p.name === activeProfile;
+              const meta = [
+                p.model || t("agents.noModel"),
+                t("agents.skillsCount", { count: p.skillCount }),
+              ].join(" · ");
+              return (
+                <button
+                  key={p.name}
+                  className={`profile-menu-item ${isActive ? "active" : ""}`}
+                  role="menuitemradio"
+                  aria-checked={isActive}
+                  onClick={() => handleSelect(p.name)}
+                >
+                  <Bot
+                    size={16}
+                    className={`profile-icon ${
+                      p.gatewayRunning ? "running" : ""
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="profile-menu-info">
+                    <span className="profile-menu-name">
+                      {p.name}
+                      {p.isDefault && (
+                        <span className="profile-menu-tag">
+                          {t("agents.defaultTag")}
+                        </span>
+                      )}
                     </span>
-                    {isActive && (
-                      <Check size={16} className="profile-menu-check" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    <span className="profile-menu-meta">{meta}</span>
+                  </span>
+                  {isActive && (
+                    <Check size={16} className="profile-menu-check" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
           <button
             className="profile-menu-manage"
             role="menuitem"
@@ -165,7 +150,7 @@ export default function ProfileSwitcher({
             }}
           >
             <Settings size={14} />
-            {enterpriseMode ? "连接设置" : t("agents.manageProfiles")}
+            {t("agents.manageProfiles")}
           </button>
         </div>
       )}
@@ -173,19 +158,19 @@ export default function ProfileSwitcher({
       <button
         className={`profile-switcher-trigger ${open ? "open" : ""}`}
         onClick={() => setOpen((o) => !o)}
-        title={enterpriseMode ? "Employee Agent" : t("agents.switchProfile")}
+        title={`${t("agents.switchProfile")}: ${label}`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Bot
           size={16}
-          className={`profile-icon ${
-            enterpriseMode || activeRunning ? "running" : ""
-          }`}
+          className={`profile-icon ${activeRunning ? "running" : ""}`}
           aria-hidden
         />
-        <span className="profile-switcher-name">{label}</span>
-        <ChevronDown size={14} className="profile-switcher-chevron" />
+        {!compact && <span className="profile-switcher-name">{label}</span>}
+        {!compact && (
+          <ChevronDown size={14} className="profile-switcher-chevron" />
+        )}
       </button>
     </div>
   );
