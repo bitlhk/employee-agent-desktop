@@ -718,12 +718,14 @@ ipcMain.handle(
     }
     const data = (await resp.json()) as {
       gatewayUrl?: string;
+      gatewayWsUrl?: string;
       gatewayToken?: string;
       defaultAgentId?: string;
       agents?: Array<{ id: string; name?: string; description?: string }>;
       user?: { id?: string; name?: string };
     };
     const gatewayUrl = normaliseEnterpriseUrl(data.gatewayUrl || "");
+    const gatewayWsUrl = String(data.gatewayWsUrl || "").trim();
     const agentId = String(
       data.defaultAgentId || data.agents?.[0]?.id || "",
     ).trim();
@@ -737,6 +739,7 @@ ipcMain.handle(
       ...current,
       mode: "remote",
       remoteUrl: gatewayUrl,
+      openClawWsUrl: gatewayWsUrl,
       apiKey: String(data.gatewayToken || ""),
     });
     setOpenClawAgentId(agentId);

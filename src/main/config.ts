@@ -45,6 +45,7 @@ export interface ConnectionConfig {
   mode: "local" | "remote" | "ssh";
   remoteUrl: string;
   apiKey: string;
+  openClawWsUrl: string;
   openClawDirect: boolean;
   ssh: SshConnectionConfig;
 }
@@ -53,6 +54,7 @@ export interface PublicConnectionConfig {
   configured: boolean;
   mode: "local" | "remote" | "ssh";
   remoteUrl: string;
+  openClawWsUrl: string;
   hasApiKey: boolean;
   openClawAgentId: string;
   openClawDirect: boolean;
@@ -97,6 +99,7 @@ export function getConnectionConfig(): ConnectionConfig {
     mode: (data.connectionMode as "local" | "remote" | "ssh") || "local",
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
+    openClawWsUrl: (data.openClawWsUrl as string) || "",
     openClawDirect: Boolean(data.openClawDirect),
     ssh: {
       host: (ssh.host as string) || OPENCLAW_DEFAULT_HOST,
@@ -131,6 +134,11 @@ export function getOpenClawAgentId(): string {
   return configured || OPENCLAW_DEFAULT_AGENT_ID;
 }
 
+export function getOpenClawWsUrl(): string {
+  const data = readDesktopConfig();
+  return String(data.openClawWsUrl || "").trim();
+}
+
 export function getPublicConnectionConfig(): PublicConnectionConfig {
   const data = readDesktopConfig();
   const config = getConnectionConfig();
@@ -138,6 +146,7 @@ export function getPublicConnectionConfig(): PublicConnectionConfig {
     configured: data.employeeAgentDesktop === true,
     mode: config.mode,
     remoteUrl: config.remoteUrl,
+    openClawWsUrl: config.openClawWsUrl,
     hasApiKey: config.apiKey.length > 0,
     apiKeyLength: config.apiKey.length,
     openClawAgentId: getOpenClawAgentId(),
@@ -168,6 +177,7 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
   data.remoteApiKey = config.apiKey;
+  data.openClawWsUrl = config.openClawWsUrl || "";
   data.openClawDirect =
     config.openClawDirect ||
     (config.mode === "remote" && isEnterpriseOpenClawUrl(config.remoteUrl));

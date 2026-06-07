@@ -52,6 +52,10 @@ import {
   chatToolProgressLabel,
   type ChatToolEvent,
 } from "../shared/chat-stream";
+import {
+  hasOpenClawGatewayWsTransport,
+  sendMessageViaOpenClawGatewayWs,
+} from "./openclaw-gateway-transport";
 
 /**
  * Resolve which profile a gateway call targets. An explicit profile always
@@ -536,7 +540,7 @@ export async function transcribeAudio(
   return (data?.text || "").trim();
 }
 
-interface ChatHandle {
+export interface ChatHandle {
   abort: () => void;
 }
 
@@ -760,6 +764,9 @@ function sendMessageViaApi(
 ): ChatHandle {
   const conn = getConnectionConfig();
   const openClawMode = isOpenClawConnection(conn);
+  if (openClawMode && hasOpenClawGatewayWsTransport()) {
+    return sendMessageViaOpenClawGatewayWs(message, cb, _resumeSessionId);
+  }
   const mc = openClawMode ? undefined : getModelConfig(profile);
   const controller = new AbortController();
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
