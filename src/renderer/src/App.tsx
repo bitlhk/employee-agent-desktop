@@ -39,7 +39,9 @@ function App(): React.JSX.Element {
       isRemote = conn.mode === "remote" || conn.mode === "ssh";
       setConnectionMode(conn.mode);
 
-      if (conn.mode === "ssh" && conn.ssh) {
+      if (!conn.configured) {
+        next = "welcome";
+      } else if (conn.mode === "ssh" && conn.ssh) {
         // Start (or ensure) the SSH tunnel, then go straight to main
         try {
           await window.hermesAPI.startSshTunnel();

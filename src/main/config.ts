@@ -50,6 +50,7 @@ export interface ConnectionConfig {
 }
 
 export interface PublicConnectionConfig {
+  configured: boolean;
   mode: "local" | "remote" | "ssh";
   remoteUrl: string;
   hasApiKey: boolean;
@@ -122,8 +123,10 @@ export function getOpenClawAgentId(): string {
 }
 
 export function getPublicConnectionConfig(): PublicConnectionConfig {
+  const data = readDesktopConfig();
   const config = getConnectionConfig();
   return {
+    configured: data.employeeAgentDesktop === true,
     mode: config.mode,
     remoteUrl: config.remoteUrl,
     hasApiKey: config.apiKey.length > 0,

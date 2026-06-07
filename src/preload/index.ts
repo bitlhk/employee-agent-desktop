@@ -183,6 +183,7 @@ const hermesAPI = {
   isRemoteOnlyMode: (): Promise<boolean> =>
     ipcRenderer.invoke("is-remote-only-mode"),
   getConnectionConfig: (): Promise<{
+    configured: boolean;
     mode: "local" | "remote" | "ssh";
     remoteUrl: string;
     hasApiKey: boolean;
