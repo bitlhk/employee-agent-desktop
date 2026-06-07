@@ -471,10 +471,10 @@ function sendMessageViaApi(
   attachments?: Attachment[],
   contextFolder?: string,
 ): ChatHandle {
-  const mc = getModelConfig(profile);
-  const controller = new AbortController();
   const conn = getConnectionConfig();
   const openClawMode = isOpenClawConnection(conn);
+  const mc = openClawMode ? undefined : getModelConfig(profile);
+  const controller = new AbortController();
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
 
   // Build full conversation from history + current message (standard OpenAI format).
@@ -502,7 +502,7 @@ function sendMessageViaApi(
   if (ctxSystem) messages.unshift(ctxSystem);
 
   const body = JSON.stringify({
-    model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
+    model: openClawMode ? "openclaw" : mc?.model || "hermes-agent",
     messages,
     stream: true,
     ...(!openClawMode && _resumeSessionId
@@ -538,9 +538,6 @@ function sendMessageViaApi(
     headers["x-openclaw-agent-id"] = openClawAgentId;
     headers["x-openclaw-session-key"] =
       `agent:${openClawAgentId}:main:${sessionLabel}`;
-    if (mc.model?.trim()) {
-      headers["x-openclaw-model"] = mc.model.trim();
-    }
     console.log("[openclaw] chat agentId=", openClawAgentId);
   }
   // Local API server key (API_SERVER_KEY in the profile's .env /
@@ -637,7 +634,7 @@ function sendMessageViaApi(
   function probeRealError(): void {
     // When streaming returns empty, make a non-streaming request to surface the real error
     const probeBody = JSON.stringify({
-      model: openClawMode ? "openclaw" : mc.model || "hermes-agent",
+      model: openClawMode ? "openclaw" : mc?.model || "hermes-agent",
       messages: [{ role: "user", content: userContent }],
       stream: false,
     });
