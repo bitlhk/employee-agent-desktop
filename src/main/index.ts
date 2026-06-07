@@ -540,6 +540,20 @@ async function enterpriseSetModelConfig(model: string): Promise<boolean> {
   return true;
 }
 
+function enterpriseConfigHealthReport(profile?: string): {
+  ranAt: number;
+  profile: string;
+  issues: unknown[];
+  summary: { errors: number; warnings: number; infos: number };
+} {
+  return {
+    ranAt: Date.now(),
+    profile: profile || "default",
+    issues: [],
+    summary: { errors: 0, warnings: 0, infos: 0 },
+  };
+}
+
 async function enterpriseFetchRegistry(): Promise<
   Awaited<ReturnType<typeof fetchRegistry>>
 > {
@@ -1040,6 +1054,7 @@ function setupIPC(): void {
   // will it work?". Fail-open semantics: any uncertain state returns
   // `ok: true`, so the renderer never false-blocks a Send.
   ipcMain.handle("validate-chat-readiness", (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection()) return { ok: true };
     return validateChatReadiness(profile);
   });
 
@@ -1048,10 +1063,14 @@ function setupIPC(): void {
   // Settings → Diagnose section. Auto-fixes are additive only — never
   // delete; always log to ~/.hermes/logs/config-fixes.log.
   ipcMain.handle("get-config-health", (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseConfigHealthReport(profile);
     return runConfigHealthCheck(profile);
   });
 
   ipcMain.handle("rerun-config-health", (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseConfigHealthReport(profile);
     return runConfigHealthCheck(profile);
   });
 
