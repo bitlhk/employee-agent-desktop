@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-  useMemo,
-  memo,
-} from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { Plus, Search, X, ChatBubble, Trash } from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
 
@@ -33,6 +26,7 @@ interface SessionsProps {
   onNewChat: () => void;
   currentSessionId: string | null;
   visible: boolean;
+  readOnly?: boolean;
 }
 
 function formatTime(ts: number): string {
@@ -246,6 +240,7 @@ function Sessions({
   onNewChat,
   currentSessionId,
   visible,
+  readOnly = false,
 }: SessionsProps): React.JSX.Element {
   const { t } = useI18n();
   const [sessions, setSessions] = useState<CachedSession[]>([]);
@@ -319,9 +314,7 @@ function Sessions({
       // backend deletion failed.
       setDeletingSessionId(sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-      setSearchResults((prev) =>
-        prev.filter((r) => r.sessionId !== sessionId),
-      );
+      setSearchResults((prev) => prev.filter((r) => r.sessionId !== sessionId));
       try {
         await window.hermesAPI.deleteSession(sessionId);
       } catch (err) {
@@ -485,6 +478,12 @@ function Sessions({
     visibleSessionIds.length > 0 &&
     visibleSessionIds.every((id) => selectedSessionIds.has(id));
 
+  useEffect(() => {
+    if (!readOnly) return;
+    setIsSelectionMode(false);
+    setSelectedSessionIds(new Set());
+  }, [readOnly]);
+
   const toggleVisibleSelection = useCallback((): void => {
     setSelectedSessionIds((prev) => {
       const next = new Set(prev);
@@ -501,9 +500,7 @@ function Sessions({
     if (!isSelectionMode) return;
     const visibleIds = new Set(visibleSessionIds);
     setSelectedSessionIds((prev) => {
-      const next = new Set(
-        Array.from(prev).filter((id) => visibleIds.has(id)),
-      );
+      const next = new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
       return next.size === prev.size ? prev : next;
     });
   }, [isSelectionMode, visibleSessionIdKey]);
@@ -519,7 +516,8 @@ function Sessions({
               type="button"
               className="btn btn-secondary sessions-select-mode"
               onClick={toggleSelectionMode}
-              disabled={loading || visibleSessionIds.length === 0}
+              disabled={readOnly || loading || visibleSessionIds.length === 0}
+              style={readOnly ? { display: "none" } : undefined}
             >
               {isSelectionMode
                 ? t("sessions.cancelSelect")
@@ -553,7 +551,7 @@ function Sessions({
             </button>
           )}
         </div>
-        {isSelectionMode && (
+        {!readOnly && isSelectionMode && (
           <div className="sessions-selection-toolbar">
             <span className="sessions-selection-count">
               {t("sessions.selectedCount", { count: selectedCount })}
@@ -612,97 +610,97 @@ function Sessions({
 
               return (
                 <div
-                key={`${r.sessionId}-${index}`}
-                role="button"
-                tabIndex={0}
-                className={`sessions-card ${
-                  currentSessionId === r.sessionId
-                    ? "sessions-card--active"
-                    : ""
-                } ${
-                  selectedSessionIds.has(r.sessionId)
-                    ? "sessions-card--selected"
-                    : ""
-                }`}
-                onClick={() => {
-                  if (isSelectionMode) {
-                    toggleSessionSelected(r.sessionId);
-                  } else {
-                    onResumeSession(r.sessionId);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+                  key={`${r.sessionId}-${index}`}
+                  role="button"
+                  tabIndex={0}
+                  className={`sessions-card ${
+                    currentSessionId === r.sessionId
+                      ? "sessions-card--active"
+                      : ""
+                  } ${
+                    selectedSessionIds.has(r.sessionId)
+                      ? "sessions-card--selected"
+                      : ""
+                  }`}
+                  onClick={() => {
                     if (isSelectionMode) {
                       toggleSessionSelected(r.sessionId);
                     } else {
                       onResumeSession(r.sessionId);
                     }
-                  }
-                }}
-              >
-                <div className="sessions-card-main">
-                  {isSelectionMode && (
-                    <label
-                      className="sessions-card-select"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSessionIds.has(r.sessionId)}
-                        onChange={() => toggleSessionSelected(r.sessionId)}
-                        aria-label={t("sessions.selectSession")}
-                      />
-                    </label>
-                  )}
-                  <span className="sessions-card-title">
-                    {r.title ||
-                      (snippetTitle
-                        ? highlightSnippet(snippetTitle)
-                        : fallbackTitle)}
-                  </span>
-                  <span className="sessions-card-time">
-                    {formatFullDate(r.startedAt)}
-                  </span>
-                </div>
-                {shouldShowSnippet && (
-                  <div className="sessions-result-snippet">
-                    {highlightSnippet(r.snippet)}
-                  </div>
-                )}
-                <div className="sessions-card-tags">
-                  <span className="sessions-tag sessions-tag--source">
-                    {r.source}
-                  </span>
-                  <span className="sessions-tag">
-                    {r.messageCount}{" "}
-                    {r.messageCount !== 1
-                      ? t("sessions.messages")
-                      : t("sessions.messageSingular")}
-                  </span>
-                  {r.model && (
-                    <span className="sessions-tag sessions-tag--model">
-                      {formatModel(r.model)}
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (isSelectionMode) {
+                        toggleSessionSelected(r.sessionId);
+                      } else {
+                        onResumeSession(r.sessionId);
+                      }
+                    }
+                  }}
+                >
+                  <div className="sessions-card-main">
+                    {isSelectionMode && (
+                      <label
+                        className="sessions-card-select"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSessionIds.has(r.sessionId)}
+                          onChange={() => toggleSessionSelected(r.sessionId)}
+                          aria-label={t("sessions.selectSession")}
+                        />
+                      </label>
+                    )}
+                    <span className="sessions-card-title">
+                      {r.title ||
+                        (snippetTitle
+                          ? highlightSnippet(snippetTitle)
+                          : fallbackTitle)}
                     </span>
+                    <span className="sessions-card-time">
+                      {formatFullDate(r.startedAt)}
+                    </span>
+                  </div>
+                  {shouldShowSnippet && (
+                    <div className="sessions-result-snippet">
+                      {highlightSnippet(r.snippet)}
+                    </div>
                   )}
-                  {!isSelectionMode && (
-                    <button
-                      type="button"
-                      className="sessions-card-delete"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(r.sessionId);
-                      }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      title={t("sessions.delete")}
-                      aria-label={t("sessions.delete")}
-                    >
-                      <Trash size={14} />
-                    </button>
-                  )}
+                  <div className="sessions-card-tags">
+                    <span className="sessions-tag sessions-tag--source">
+                      {r.source}
+                    </span>
+                    <span className="sessions-tag">
+                      {r.messageCount}{" "}
+                      {r.messageCount !== 1
+                        ? t("sessions.messages")
+                        : t("sessions.messageSingular")}
+                    </span>
+                    {r.model && (
+                      <span className="sessions-tag sessions-tag--model">
+                        {formatModel(r.model)}
+                      </span>
+                    )}
+                    {!readOnly && !isSelectionMode && (
+                      <button
+                        type="button"
+                        className="sessions-card-delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(r.sessionId);
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title={t("sessions.delete")}
+                        aria-label={t("sessions.delete")}
+                      >
+                        <Trash size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
               );
             })}
           </div>
@@ -729,7 +727,7 @@ function Sessions({
                     group.label === "thisWeek" || group.label === "earlier"
                   }
                   onClick={() => onResumeSession(s.id)}
-                  onDelete={handleDelete}
+                  onDelete={readOnly ? undefined : handleDelete}
                   deleteTitle={t("sessions.delete")}
                   selectionMode={isSelectionMode}
                   selected={selectedSessionIds.has(s.id)}

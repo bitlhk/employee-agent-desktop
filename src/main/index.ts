@@ -258,7 +258,162 @@ async function hydrateSshAuthHeaderForConnection(): Promise<void> {
 }
 
 function normaliseEnterpriseUrl(raw: string): string {
-  return String(raw || "").trim().replace(/\/+$/, "");
+  return String(raw || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+type EnterpriseDesktopSession = {
+  id: string;
+  title?: string;
+  preview?: string;
+  searchText?: string;
+  startedAt?: number;
+  updatedAt?: number;
+  source?: string;
+  messageCount?: number;
+  model?: string;
+};
+
+type EnterpriseDesktopHistoryItem = {
+  kind: "user" | "assistant" | "reasoning" | "tool_call" | "tool_result";
+  id: number;
+  content?: string;
+  text?: string;
+  callId?: string;
+  name?: string;
+  args?: string;
+  timestamp?: number;
+};
+
+function isEnterpriseOpenClawConnection(): boolean {
+  const conn = getConnectionConfig();
+  return conn.mode === "remote" && isOpenClawConnection(conn);
+}
+
+function enterpriseControlUrl(): string {
+  const conn = getConnectionConfig();
+  const remoteUrl = normaliseEnterpriseUrl(conn.remoteUrl);
+  if (!remoteUrl) throw new Error("Enterprise desktop is not connected");
+  const marker = "/api/desktop/openclaw";
+  const index = remoteUrl.indexOf(marker);
+  if (index >= 0) return remoteUrl.slice(0, index);
+  try {
+    const url = new URL(remoteUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return remoteUrl;
+  }
+}
+
+async function fetchEnterpriseJson<T>(path: string): Promise<T> {
+  const conn = getConnectionConfig();
+  const token = conn.apiKey;
+  const resp = await fetch(`${enterpriseControlUrl()}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!resp.ok) {
+    throw new Error(`Enterprise desktop request failed: HTTP ${resp.status}`);
+  }
+  return (await resp.json()) as T;
+}
+
+function mapEnterpriseSession(session: EnterpriseDesktopSession): {
+  id: string;
+  title: string;
+  startedAt: number;
+  source: string;
+  messageCount: number;
+  model: string;
+} {
+  const startedAt =
+    Number(session.startedAt || session.updatedAt || 0) ||
+    Math.floor(Date.now() / 1000);
+  return {
+    id: String(session.id || "").trim(),
+    title: String(session.title || session.preview || "新对话"),
+    startedAt,
+    source: String(session.source || "OpenClaw"),
+    messageCount: Number(session.messageCount || 0),
+    model: String(session.model || "openclaw"),
+  };
+}
+
+async function enterpriseListCachedSessions(
+  limit = 50,
+): Promise<ReturnType<typeof mapEnterpriseSession>[]> {
+  const data = await fetchEnterpriseJson<{
+    sessions?: EnterpriseDesktopSession[];
+  }>(`/api/desktop/sessions?limit=${encodeURIComponent(String(limit))}`);
+  return (data.sessions || [])
+    .map(mapEnterpriseSession)
+    .filter((session) => session.id);
+}
+
+async function enterpriseGetSessionMessages(
+  sessionId: string,
+): Promise<EnterpriseDesktopHistoryItem[]> {
+  const data = await fetchEnterpriseJson<{
+    messages?: EnterpriseDesktopHistoryItem[];
+  }>(
+    `/api/desktop/session-messages?sessionId=${encodeURIComponent(sessionId)}`,
+  );
+  return data.messages || [];
+}
+
+function buildSearchSnippet(
+  session: EnterpriseDesktopSession,
+  query: string,
+): string {
+  const text = String(
+    session.searchText || session.preview || session.title || "",
+  ).replace(/\s+/g, " ");
+  const q = query.trim();
+  if (!q) return String(session.preview || session.title || "");
+  const lower = text.toLowerCase();
+  const index = lower.indexOf(q.toLowerCase());
+  if (index < 0) return String(session.preview || session.title || "");
+  const start = Math.max(0, index - 48);
+  const end = Math.min(text.length, index + q.length + 72);
+  return `${start > 0 ? "..." : ""}${text.slice(start, index)}<<${text.slice(
+    index,
+    index + q.length,
+  )}>>${text.slice(index + q.length, end)}${end < text.length ? "..." : ""}`;
+}
+
+async function enterpriseSearchSessions(
+  query: string,
+  limit = 20,
+): Promise<
+  Array<{
+    sessionId: string;
+    title: string | null;
+    startedAt: number;
+    source: string;
+    messageCount: number;
+    model: string;
+    snippet: string;
+  }>
+> {
+  const data = await fetchEnterpriseJson<{
+    sessions?: EnterpriseDesktopSession[];
+  }>(
+    `/api/desktop/sessions?limit=${encodeURIComponent(
+      String(limit),
+    )}&q=${encodeURIComponent(query)}`,
+  );
+  return (data.sessions || []).map((session) => {
+    const mapped = mapEnterpriseSession(session);
+    return {
+      sessionId: mapped.id,
+      title: mapped.title,
+      startedAt: mapped.startedAt,
+      source: mapped.source,
+      messageCount: mapped.messageCount,
+      model: mapped.model,
+      snippet: buildSearchSnippet(session, query),
+    };
+  });
 }
 
 ipcMain.handle(
@@ -292,7 +447,8 @@ ipcMain.handle(
       }
       const loginData = (await loginResp.json()) as { accessToken?: string };
       token = String(loginData.accessToken || "").trim();
-      if (!token) throw new Error("Desktop login did not return an access token");
+      if (!token)
+        throw new Error("Desktop login did not return an access token");
     }
 
     const headers: Record<string, string> = {};
@@ -313,9 +469,13 @@ ipcMain.handle(
       user?: { id?: string; name?: string };
     };
     const gatewayUrl = normaliseEnterpriseUrl(data.gatewayUrl || "");
-    const agentId = String(data.defaultAgentId || data.agents?.[0]?.id || "").trim();
-    if (!gatewayUrl) throw new Error("Desktop bootstrap did not return gatewayUrl");
-    if (!agentId) throw new Error("Desktop bootstrap did not return an agent id");
+    const agentId = String(
+      data.defaultAgentId || data.agents?.[0]?.id || "",
+    ).trim();
+    if (!gatewayUrl)
+      throw new Error("Desktop bootstrap did not return gatewayUrl");
+    if (!agentId)
+      throw new Error("Desktop bootstrap did not return an agent id");
 
     const current = getConnectionConfig();
     setConnectionConfig({
@@ -851,12 +1011,7 @@ function setupIPC(): void {
       setConnectionConfig({
         ...current,
         mode: "ssh",
-        apiKey: resolveConnectionApiKeyUpdate(
-          current,
-          "ssh",
-          "",
-          apiKey,
-        ),
+        apiKey: resolveConnectionApiKeyUpdate(current, "ssh", "", apiKey),
         openClawDirect: false,
         ssh: { host, port, username, keyPath, remotePort, localPort },
       });
@@ -1211,6 +1366,8 @@ function setupIPC(): void {
   // Sessions
   ipcMain.handle("list-sessions", (_event, limit?: number, offset?: number) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseListCachedSessions(limit || 50);
     if (conn.mode === "ssh" && conn.ssh)
       return sshListSessions(conn.ssh, limit, offset);
     return listSessions(limit, offset);
@@ -1218,16 +1375,25 @@ function setupIPC(): void {
 
   ipcMain.handle("get-session-messages", (_event, sessionId: string) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseGetSessionMessages(sessionId);
     if (conn.mode === "ssh" && conn.ssh)
       return sshGetSessionMessages(conn.ssh, sessionId);
     return getSessionMessages(sessionId);
   });
 
   ipcMain.handle("delete-session", (_event, sessionId: string) => {
+    if (isEnterpriseOpenClawConnection()) return undefined;
     return deleteSession(sessionId);
   });
 
   ipcMain.handle("delete-sessions", (_event, sessionIds: string[]) => {
+    if (isEnterpriseOpenClawConnection()) {
+      return {
+        requested: Array.isArray(sessionIds) ? sessionIds.length : 0,
+        deleted: 0,
+      };
+    }
     return deleteSessions(Array.isArray(sessionIds) ? sessionIds : []);
   });
 
@@ -1386,6 +1552,8 @@ function setupIPC(): void {
     "list-cached-sessions",
     (_event, limit?: number, offset?: number) => {
       const conn = getConnectionConfig();
+      if (isEnterpriseOpenClawConnection())
+        return enterpriseListCachedSessions(limit || 50);
       if (conn.mode === "ssh" && conn.ssh)
         return sshListCachedSessions(conn.ssh, limit, offset);
       return listCachedSessions(limit, offset);
@@ -1393,6 +1561,8 @@ function setupIPC(): void {
   );
   ipcMain.handle("sync-session-cache", () => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseListCachedSessions(50);
     if (conn.mode === "ssh" && conn.ssh)
       return sshListCachedSessions(conn.ssh, 50);
     try {
@@ -1411,6 +1581,8 @@ function setupIPC(): void {
   // Session search
   ipcMain.handle("search-sessions", (_event, query: string, limit?: number) => {
     const conn = getConnectionConfig();
+    if (isEnterpriseOpenClawConnection())
+      return enterpriseSearchSessions(query, limit || 20);
     if (conn.mode === "ssh" && conn.ssh)
       return sshSearchSessions(conn.ssh, query, limit);
     return searchSessions(query, limit);

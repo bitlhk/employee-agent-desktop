@@ -74,6 +74,16 @@ const NAV_ITEMS: { view: View; icon: LucideIcon; labelKey: string }[] = [
   { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
 ];
 
+const ENTERPRISE_NAV_ITEMS: {
+  view: View;
+  icon: LucideIcon;
+  labelKey: string;
+}[] = [
+  { view: "chat", icon: ChatBubble, labelKey: "navigation.chat" },
+  { view: "sessions", icon: Clock, labelKey: "navigation.sessions" },
+  { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
+];
+
 interface LayoutProps {
   verifyWarning?: boolean;
   onReinstall?: () => void;
@@ -97,6 +107,7 @@ function Layout({
   );
   // Remote-only mode — SSH tunnel has full access; only pure HTTP remote mode restricts screens
   const [remoteMode, setRemoteMode] = useState(false);
+  const [enterpriseMode, setEnterpriseMode] = useState(false);
 
   const paneStyle = (target: View): React.CSSProperties => ({
     display: view === target ? "flex" : "none",
@@ -112,7 +123,10 @@ function Layout({
 
   // Re-check remote mode on tab switch (picks up Settings changes)
   useEffect(() => {
-    window.hermesAPI.isRemoteOnlyMode().then(setRemoteMode);
+    void window.hermesAPI.isRemoteOnlyMode().then(setRemoteMode);
+    void window.hermesAPI.getConnectionConfig().then((config) => {
+      setEnterpriseMode(config.mode === "remote" && config.openClawDirect);
+    });
   }, [view]);
 
   // Restore the last-activated profile on launch. The main process persists it
@@ -229,6 +243,15 @@ function Layout({
     [goTo],
   );
 
+  const navItems = enterpriseMode ? ENTERPRISE_NAV_ITEMS : NAV_ITEMS;
+
+  useEffect(() => {
+    if (!enterpriseMode) return;
+    if (!ENTERPRISE_NAV_ITEMS.some((item) => item.view === view)) {
+      goTo("chat");
+    }
+  }, [enterpriseMode, goTo, view]);
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -245,7 +268,7 @@ function Layout({
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ view: v, icon: Icon, labelKey }) => (
+          {navItems.map(({ view: v, icon: Icon, labelKey }) => (
             <button
               key={v}
               className={`sidebar-nav-item ${view === v ? "active" : ""}`}
@@ -314,7 +337,7 @@ function Layout({
 
         {visitedViews.has("sessions") && (
           <div style={paneStyle("sessions")}>
-            {remoteMode ? (
+            {remoteMode && !enterpriseMode ? (
               <RemoteNotice feature="Sessions" />
             ) : (
               <Sessions
@@ -322,6 +345,7 @@ function Layout({
                 onNewChat={handleNewChat}
                 currentSessionId={currentSessionId}
                 visible={view === "sessions"}
+                readOnly={enterpriseMode}
               />
             )}
           </div>
