@@ -298,6 +298,38 @@ function normalizeToolCallArgs(value: unknown): string {
   }
 }
 
+function openClawSseDebugSummary(data: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+    const choice = Array.isArray(parsed.choices)
+      ? (parsed.choices[0] as Record<string, unknown> | undefined)
+      : undefined;
+    const delta =
+      choice?.delta && typeof choice.delta === "object"
+        ? (choice.delta as Record<string, unknown>)
+        : undefined;
+    const payload =
+      parsed.data && typeof parsed.data === "object"
+        ? (parsed.data as Record<string, unknown>)
+        : parsed.payload && typeof parsed.payload === "object"
+          ? (parsed.payload as Record<string, unknown>)
+          : undefined;
+    return {
+      keys: Object.keys(parsed).slice(0, 10),
+      type: stringValue(parsed.type),
+      event: stringValue(parsed.event),
+      stream: stringValue(parsed.stream) || stringValue(payload?.stream),
+      phase: stringValue(parsed.phase) || stringValue(payload?.phase),
+      deltaKeys: delta ? Object.keys(delta).slice(0, 10) : [],
+      finishReason: stringValue(choice?.finish_reason),
+      hasToolCalls: Boolean(delta?.tool_calls),
+      payloadKeys: payload ? Object.keys(payload).slice(0, 10) : [],
+    };
+  } catch {
+    return { nonJson: true, length: data.length };
+  }
+}
+
 export function extractOpenAiToolCallEvents(
   parsed: unknown,
   toolCallState: Map<string, OpenAiToolCallStreamState>,
@@ -732,6 +764,7 @@ function sendMessageViaApi(
   const controller = new AbortController();
   const openClawAgentId = openClawMode ? getOpenClawAgentId() : "";
   const openAiToolCallState = new Map<string, OpenAiToolCallStreamState>();
+  let openClawSseDebugCount = 0;
 
   // Build full conversation from history + current message (standard OpenAI format).
   // OpenClaw direct mode already keeps conversation state by
@@ -1151,6 +1184,17 @@ function sendMessageViaApi(
           }
         }
         if (!dataLine) return false;
+        if (
+          openClawMode &&
+          openClawSseDebugCount < 12 &&
+          eventType !== "message"
+        ) {
+          openClawSseDebugCount += 1;
+          console.log("[openclaw] raw sse", {
+            eventType: eventType || "(none)",
+            ...openClawSseDebugSummary(dataLine),
+          });
+        }
         if (eventType) {
           // Custom event (e.g. hermes.tool.progress / tool_call). Unknown
           // event types may still contain OpenAI-compatible JSON, so don't
