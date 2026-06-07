@@ -52,6 +52,7 @@ export interface PublicConnectionConfig {
   mode: "local" | "remote" | "ssh";
   remoteUrl: string;
   hasApiKey: boolean;
+  openClawAgentId: string;
   // Length of the stored API key, exposed so the renderer can show a
   // mask that matches the real value's width. The secret itself never
   // leaves the main process. 0 when no key is set.
@@ -121,8 +122,16 @@ export function getPublicConnectionConfig(): PublicConnectionConfig {
     remoteUrl: config.remoteUrl,
     hasApiKey: config.apiKey.length > 0,
     apiKeyLength: config.apiKey.length,
+    openClawAgentId: getOpenClawAgentId(),
     ssh: config.ssh,
   };
+}
+
+export function setOpenClawAgentId(agentId: string): void {
+  const data = readDesktopConfig();
+  data.employeeAgentDesktop = true;
+  data.openClawAgentId = agentId.trim() || OPENCLAW_DEFAULT_AGENT_ID;
+  writeDesktopConfig(data);
 }
 
 export function setConnectionConfig(config: ConnectionConfig): void {

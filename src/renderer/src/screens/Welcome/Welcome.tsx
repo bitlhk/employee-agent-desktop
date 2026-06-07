@@ -44,6 +44,7 @@ function Welcome({
   const [sshKeyPath, setSshKeyPath] = useState("");
   const [sshRemotePort, setSshRemotePort] = useState("18789");
   const [sshGatewayToken, setSshGatewayToken] = useState("");
+  const [sshAgentId, setSshAgentId] = useState("trial_lgc-ppstsl9ddr");
   const [sshError, setSshError] = useState<string | null>(null);
   const [sshTesting, setSshTesting] = useState(false);
 
@@ -101,6 +102,7 @@ function Welcome({
           remotePort,
           18789,
           sshGatewayToken.trim(),
+          sshAgentId.trim(),
         );
         onRecheck();
       } else {
@@ -281,6 +283,17 @@ function Welcome({
             placeholder="OpenClaw CLAW_GATEWAY_TOKEN, or leave empty when key path can read it"
             value={sshGatewayToken}
             onChange={(e) => setSshGatewayToken(e.target.value)}
+          />
+
+          <label className="welcome-remote-label" style={{ marginTop: 12 }}>
+            OpenClaw Agent ID
+          </label>
+          <input
+            type="text"
+            className="welcome-remote-input"
+            placeholder="trial_lgc-ppstsl9ddr"
+            value={sshAgentId}
+            onChange={(e) => setSshAgentId(e.target.value)}
           />
 
           <div className="welcome-remote-row" style={{ marginTop: 16 }}>

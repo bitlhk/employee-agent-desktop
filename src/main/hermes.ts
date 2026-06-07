@@ -532,6 +532,7 @@ function sendMessageViaApi(
     headers["x-openclaw-agent-id"] = openClawAgentId;
     headers["x-openclaw-session-key"] =
       `agent:${openClawAgentId}:main:${sessionLabel}`;
+    console.log("[openclaw] chat agentId=", openClawAgentId);
   }
   // Local API server key (API_SERVER_KEY in the profile's .env /
   // config.yaml) only applies in local mode — in remote/SSH mode the

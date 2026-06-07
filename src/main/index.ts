@@ -101,6 +101,7 @@ import {
   isOpenClawConnection,
   resolveConnectionApiKeyUpdate,
   setConnectionConfig,
+  setOpenClawAgentId,
   getPlatformEnabled,
   setPlatformEnabled,
   getApiServerKey,
@@ -768,6 +769,7 @@ function setupIPC(): void {
       remotePort: number,
       localPort: number,
       apiKey?: string,
+      openClawAgentId?: string,
     ) => {
       const current = getConnectionConfig();
       setConnectionConfig({
@@ -781,6 +783,9 @@ function setupIPC(): void {
         ),
         ssh: { host, port, username, keyPath, remotePort, localPort },
       });
+      if (openClawAgentId !== undefined) {
+        setOpenClawAgentId(openClawAgentId);
+      }
       return true;
     },
   );

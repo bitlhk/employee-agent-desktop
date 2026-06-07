@@ -253,6 +253,7 @@ interface HermesAPI {
     remoteUrl: string;
     hasApiKey: boolean;
     apiKeyLength: number;
+    openClawAgentId: string;
     ssh: {
       host: string;
       port: number;
@@ -275,6 +276,7 @@ interface HermesAPI {
     remotePort: number,
     localPort: number,
     apiKey?: string,
+    openClawAgentId?: string,
   ) => Promise<boolean>;
   testRemoteConnection: (url: string, apiKey?: string) => Promise<boolean>;
   testSshConnection: (
