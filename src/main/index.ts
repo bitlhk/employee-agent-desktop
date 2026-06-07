@@ -1403,6 +1403,7 @@ function setupIPC(): void {
       }
 
       let fullResponse = "";
+      let hasStreamActivity = false;
       const chatStartTime = Date.now();
       let resolveChat: (v: { response: string; sessionId?: string }) => void;
       let rejectChat: (reason?: unknown) => void;
@@ -1432,6 +1433,7 @@ function setupIPC(): void {
         message,
         {
           onChunk: (chunk) => {
+            hasStreamActivity = true;
             fullResponse += chunk;
             if (!safeSend("chat-chunk", chunk) && currentChatAbort) {
               // Renderer is gone — stop generating and resolve with what we
@@ -1440,6 +1442,7 @@ function setupIPC(): void {
             }
           },
           onReasoningChunk: (chunk) => {
+            hasStreamActivity = true;
             // Forward reasoning/thinking tokens on a dedicated channel so
             // the renderer can render the thinking bubble live during the
             // stream rather than waiting for a focus-change refresh (#352).
@@ -1469,7 +1472,31 @@ function setupIPC(): void {
             }
           },
           onError: (error) => {
+            const isCodexIdleTimeout =
+              /codex app-server turn idle timed out waiting for turn\/completed/i.test(
+                error,
+              );
             currentChatAbort = null;
+            if (isCodexIdleTimeout) {
+              if (hasStreamActivity || fullResponse.trim()) {
+                safeSend("chat-done", resumeSessionId || "");
+                resolveChat({
+                  response: fullResponse,
+                  sessionId: resumeSessionId || undefined,
+                });
+                return;
+              }
+              const message =
+                "这次任务在 OpenClaw/Codex 侧等待完成信号超时了。可以重试一次，或把问题范围收窄一点。";
+              fullResponse = message;
+              safeSend("chat-chunk", message);
+              safeSend("chat-done", resumeSessionId || "");
+              resolveChat({
+                response: message,
+                sessionId: resumeSessionId || undefined,
+              });
+              return;
+            }
             safeSend("chat-error", error);
             rejectChat(new Error(error));
             // Notify on error too if window not focused
@@ -1481,9 +1508,11 @@ function setupIPC(): void {
             }
           },
           onToolProgress: (tool) => {
+            hasStreamActivity = true;
             safeSend("chat-tool-progress", tool);
           },
           onToolEvent: (toolEvent) => {
+            hasStreamActivity = true;
             safeSend("chat-tool-event", toolEvent);
           },
           onUsage: (usage) => {
