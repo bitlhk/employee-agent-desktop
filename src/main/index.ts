@@ -770,6 +770,10 @@ function openExternalUrl(rawUrl: unknown): void {
 function createWindow(): void {
   const rendererHtmlPath = join(__dirname, "../renderer/index.html");
 
+  if (process.platform === "darwin") {
+    app.dock?.setIcon(icon);
+  }
+
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 850,
@@ -786,7 +790,7 @@ function createWindow(): void {
     ...(process.platform === "darwin"
       ? { trafficLightPosition: { x: 16, y: 16 } }
       : {}),
-    ...(process.platform === "linux" ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       nodeIntegration: false,

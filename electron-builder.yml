@@ -13,6 +13,7 @@ asarUnpack:
   - resources/**
 win:
   executableName: employee-agent-desktop
+  icon: build/icon.ico
   target:
     - nsis
     - portable
@@ -41,6 +42,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
+  icon: build/icon.png
   target:
     - AppImage
     - snap
