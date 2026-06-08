@@ -1918,18 +1918,36 @@ function setupIPC(): void {
   );
 
   // Soul
-  ipcMain.handle("read-soul", (_event, profile?: string) => {
+  ipcMain.handle("read-soul", async (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection())
+      return fetchEnterpriseJson("/api/desktop/soul/read");
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh) return sshReadSoul(conn.ssh, profile);
     return readSoul(profile);
   });
-  ipcMain.handle("write-soul", (_event, content: string, profile?: string) => {
+  ipcMain.handle("write-soul", async (_event, content: string, profile?: string) => {
+    if (isEnterpriseOpenClawConnection()) {
+      const conn = getConnectionConfig(); const token = conn.apiKey;
+      const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/soul/write`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ content }),
+      });
+      return resp.json().catch(() => ({ success: false }));
+    }
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh)
       return sshWriteSoul(conn.ssh, content, profile);
     return writeSoul(content, profile);
   });
-  ipcMain.handle("reset-soul", (_event, profile?: string) => {
+  ipcMain.handle("reset-soul", async (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection()) {
+      const conn = getConnectionConfig(); const token = conn.apiKey;
+      await fetch(`${enterpriseControlUrl()}/api/desktop/soul/write`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ content: "" }),
+      });
+      return true;
+    }
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh) return sshResetSoul(conn.ssh, profile);
     return resetSoul(profile);

@@ -9,7 +9,7 @@ import { MemoryProfile } from "./MemoryProfile";
 import { MemoryProviders } from "./MemoryProviders";
 import type { MemoryData, MemoryProviderInfo, MemoryTab } from "./types";
 
-function Memory({ profile }: { profile?: string }): React.JSX.Element {
+function Memory({ profile, enterpriseMode }: { profile?: string; enterpriseMode?: boolean }): React.JSX.Element {
   const { t } = useI18n();
   const [data, setData] = useState<MemoryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
       </div>
 
       <CapacityCards data={data} />
-      <MemoryTabs activeTab={tab} onTabChange={setTab} />
+      <MemoryTabs activeTab={tab} onTabChange={setTab} hiddenTabs={enterpriseMode ? ["providers"] : []} />
 
       {error && <div className="memory-error">{error}</div>}
 

@@ -5,9 +5,10 @@ import type { MemoryTab } from "./types";
 interface MemoryTabsProps {
   activeTab: MemoryTab;
   onTabChange: (tab: MemoryTab) => void;
+  hiddenTabs?: MemoryTab[];
 }
 
-export function MemoryTabs({ activeTab, onTabChange }: MemoryTabsProps): React.JSX.Element {
+export function MemoryTabs({ activeTab, onTabChange, hiddenTabs = [] }: MemoryTabsProps): React.JSX.Element {
   const { t } = useI18n();
 
   const tabs: { id: MemoryTab; icon: typeof Database; label: string }[] = [
@@ -15,7 +16,7 @@ export function MemoryTabs({ activeTab, onTabChange }: MemoryTabsProps): React.J
     { id: "profile", icon: User, label: t("memory.userProfile") },
     { id: "providers", icon: Cloud, label: t("memory.providersTitle") },
     { id: "soul", icon: Sparkles, label: t("soul.title") },
-  ];
+  ].filter((tab) => !hiddenTabs.includes(tab.id));
 
   return (
     <div className="memory-tabs">

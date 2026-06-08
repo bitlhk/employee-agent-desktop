@@ -428,7 +428,7 @@ function Layout({
             {remoteMode && !enterpriseMode ? (
               <RemoteNotice feature="Memory" />
             ) : (
-              <Memory profile={activeProfile} />
+              <Memory profile={activeProfile} enterpriseMode={enterpriseMode} />
             )}
           </div>
         )}
