@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "qrcode";
+// qrcode renders entirely locally via toDataURL — no network request to any third party
 import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import BrandLogo from "../../components/common/BrandLogo";
@@ -18,13 +19,15 @@ type BindState =
   | { phase: "error"; message: string };
 
 function QRCanvas({ data }: { data: string }): React.JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [dataUrl, setDataUrl] = useState("");
   useEffect(() => {
-    if (canvasRef.current && data) {
-      QRCode.toCanvas(canvasRef.current, data, { width: 200, margin: 1 }).catch(() => {});
-    }
+    if (!data) return;
+    QRCode.toDataURL(data, { width: 200, margin: 1 })
+      .then(setDataUrl)
+      .catch(() => {});
   }, [data]);
-  return <canvas ref={canvasRef} className="settings-qr-img" />;
+  if (!dataUrl) return <div className="settings-qr-img" />;
+  return <img className="settings-qr-img" src={dataUrl} alt="扫码绑定" />;
 }
 
 // ── Enterprise-mode Gateway ──────────────────────────────────────────────────
