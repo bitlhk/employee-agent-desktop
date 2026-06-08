@@ -64,8 +64,12 @@ function EnterpriseGateway({ remoteUrl }: { remoteUrl: string }): React.JSX.Elem
   }
 
   function handleBind(): void {
-    const base = remoteUrl.replace(/\/$/, "");
-    void window.hermesAPI.openExternal(`${base}/`);
+    try {
+      const { origin } = new URL(remoteUrl);
+      void window.hermesAPI.openExternal(`${origin}/`);
+    } catch {
+      void window.hermesAPI.openExternal(remoteUrl);
+    }
   }
 
   return (
