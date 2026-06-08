@@ -14,6 +14,7 @@ import Memory from "../Memory/Memory";
 import Tools from "../Tools/Tools";
 import Gateway from "../Gateway/Gateway";
 import Office from "../Office/Office";
+import Files from "../Files/Files";
 import Models from "../Models/Models";
 import Providers from "../Providers/Providers";
 import Schedules from "../Schedules/Schedules";
@@ -36,6 +37,7 @@ import {
   Kanban as KanbanIcon,
   Download,
 } from "../../assets/icons";
+import { Folder } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "../../components/useI18n";
 
@@ -53,7 +55,8 @@ type View =
   | "schedules"
   | "kanban"
   | "gateway"
-  | "settings";
+  | "settings"
+  | "files";
 
 const NAV_ITEMS: { view: View; icon: LucideIcon; labelKey: string }[] = [
   { view: "chat", icon: ChatBubble, labelKey: "navigation.chat" },
@@ -84,6 +87,7 @@ const ENTERPRISE_NAV_ITEMS: {
   { view: "discover", icon: Compass, labelKey: "navigation.discover" },
   { view: "schedules", icon: Timer, labelKey: "navigation.schedules" },
   { view: "memory", icon: Brain, labelKey: "navigation.memory" },
+  { view: "files", icon: Folder, labelKey: "navigation.files" },
   { view: "gateway", icon: Signal, labelKey: "navigation.gateway" },
   { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
 ];
@@ -456,6 +460,12 @@ function Layout({
             ) : (
               <Kanban profile={activeProfile} visible={view === "kanban"} />
             )}
+          </div>
+        )}
+
+        {visitedViews.has("files") && (
+          <div style={paneStyle("files")}>
+            <Files />
           </div>
         )}
 

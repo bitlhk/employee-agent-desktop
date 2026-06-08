@@ -522,6 +522,15 @@ interface HermesAPI {
     profile?: string,
   ) => Promise<{ success: boolean; error?: string }>;
 
+  // Files (enterprise)
+  listDesktopFiles: (subPath?: string) => Promise<{
+    files: { name: string; path: string; type: "file" | "directory"; size?: number; modifiedAt: string }[];
+    protectedFiles: string[];
+  }>;
+  readDesktopFile: (relPath: string) => Promise<{ path: string; content: string; size: number; modifiedAt: string } | null>;
+  downloadDesktopFile: (relPath: string) => Promise<{ ok: boolean; savedPath?: string; error?: string }>;
+  uploadDesktopFile: (filename: string, contentBase64: string, subPath?: string) => Promise<{ ok: boolean; path?: string; size?: number; error?: string }>;
+
   // Soul
   readSoul: (profile?: string) => Promise<string>;
   writeSoul: (content: string, profile?: string) => Promise<boolean>;

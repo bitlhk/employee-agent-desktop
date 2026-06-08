@@ -607,6 +607,18 @@ const hermesAPI = {
   ): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("write-user-profile", content, profile),
 
+  // Files (enterprise)
+  listDesktopFiles: (subPath?: string): Promise<{
+    files: { name: string; path: string; type: "file" | "directory"; size?: number; modifiedAt: string }[];
+    protectedFiles: string[];
+  }> => ipcRenderer.invoke("list-desktop-files", subPath),
+  readDesktopFile: (relPath: string): Promise<{ path: string; content: string; size: number; modifiedAt: string } | null> =>
+    ipcRenderer.invoke("read-desktop-file", relPath),
+  downloadDesktopFile: (relPath: string): Promise<{ ok: boolean; savedPath?: string; error?: string }> =>
+    ipcRenderer.invoke("download-desktop-file", relPath),
+  uploadDesktopFile: (filename: string, contentBase64: string, subPath?: string): Promise<{ ok: boolean; path?: string; size?: number; error?: string }> =>
+    ipcRenderer.invoke("upload-desktop-file", filename, contentBase64, subPath),
+
   // Soul
   readSoul: (profile?: string): Promise<string> =>
     ipcRenderer.invoke("read-soul", profile),

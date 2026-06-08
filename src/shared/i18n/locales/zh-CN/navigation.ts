@@ -10,6 +10,7 @@ export default {
   soul: "人格",
   memory: "记忆",
   tools: "工具",
+  files: "文件",
   schedules: "计划任务",
   kanban: "看板",
   gateway: "网关",

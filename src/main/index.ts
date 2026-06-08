@@ -1953,6 +1953,54 @@ function setupIPC(): void {
     return resetSoul(profile);
   });
 
+  // Files (enterprise only)
+  ipcMain.handle("list-desktop-files", async (_event, subPath?: string) => {
+    if (!isEnterpriseOpenClawConnection()) return { files: [], protectedFiles: [] };
+    const qs = subPath ? `?path=${encodeURIComponent(subPath)}` : "";
+    return fetchEnterpriseJson(`/api/desktop/files/list${qs}`);
+  });
+
+  ipcMain.handle("read-desktop-file", async (_event, relPath: string) => {
+    if (!isEnterpriseOpenClawConnection()) return null;
+    return fetchEnterpriseJson(`/api/desktop/files/read?path=${encodeURIComponent(relPath)}`);
+  });
+
+  ipcMain.handle("download-desktop-file", async (_event, relPath: string) => {
+    if (!isEnterpriseOpenClawConnection()) return { ok: false, error: "not in enterprise mode" };
+    try {
+      const conn = getConnectionConfig();
+      const baseUrl = (() => { try { return new URL(conn.remoteUrl || "").origin; } catch { return conn.remoteUrl || ""; } })();
+      const token = conn.apiKey;
+      const resp = await fetch(`${baseUrl}/api/desktop/files/download?path=${encodeURIComponent(relPath)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) return { ok: false, error: `server error ${resp.status}` };
+      const arrayBuf = await resp.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      const filename = path.basename(relPath);
+      const { filePath: savePath } = await dialog.showSaveDialog({ defaultPath: filename });
+      if (!savePath) return { ok: false, error: "cancelled" };
+      const { writeFileSync: wfs } = await import("fs");
+      wfs(savePath, buf);
+      shell.showItemInFolder(savePath);
+      return { ok: true, savedPath: savePath };
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message || e) };
+    }
+  });
+
+  ipcMain.handle("upload-desktop-file", async (_event, filename: string, contentBase64: string, subPath?: string) => {
+    if (!isEnterpriseOpenClawConnection()) return { ok: false, error: "not in enterprise mode" };
+    const conn = getConnectionConfig();
+    const token = conn.apiKey;
+    const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/files/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ filename, contentBase64, path: subPath || "" }),
+    });
+    return resp.json().catch(() => ({ ok: false, error: "parse error" }));
+  });
+
   // Tools
   ipcMain.handle("get-toolsets", (_event, profile?: string) => {
     const conn = getConnectionConfig();
