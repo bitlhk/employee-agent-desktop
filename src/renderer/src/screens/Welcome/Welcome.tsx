@@ -30,6 +30,12 @@ function Welcome({
 }: WelcomeProps): React.JSX.Element {
   const { t } = useI18n();
   const [panel, setPanel] = useState<ConnectionPanel>("enterprise");
+  const [backPanel, setBackPanel] = useState<ConnectionPanel>("enterprise");
+
+  function gotoPanel(next: ConnectionPanel, back?: ConnectionPanel): void {
+    if (back !== undefined) setBackPanel(back);
+    setPanel(next);
+  }
 
   // Enterprise state
   const [enterpriseUrl, setEnterpriseUrl] = useState("https://work.linggan.top");
@@ -333,7 +339,7 @@ function Welcome({
         {import.meta.env.DEV && (
           <button
             className="btn-ghost"
-            onClick={() => setPanel("ssh")}
+            onClick={() => gotoPanel("ssh", "enterprise")}
             style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)" }}
           >
             开发者高级连接
@@ -483,7 +489,7 @@ function Welcome({
 
         <button
           className="btn-ghost"
-          onClick={() => setPanel("none")}
+          onClick={() => setPanel(backPanel)}
           style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)" }}
         >
           {t("common.back")}
@@ -559,7 +565,7 @@ function Welcome({
             </button>{" "}
             <button
               className="btn btn-secondary welcome-recheck-btn "
-              onClick={() => setPanel("ssh")}
+              onClick={() => gotoPanel("ssh", "none")}
             >
               <KeyRound size={16} />
               Advanced OpenClaw
@@ -579,7 +585,7 @@ function Welcome({
           {import.meta.env.DEV && (
             <button
               className="btn btn-secondary welcome-recheck-btn"
-              onClick={() => setPanel("ssh")}
+              onClick={() => gotoPanel("ssh", "none")}
               style={{ marginTop: 12 }}
             >
               <KeyRound size={16} />
