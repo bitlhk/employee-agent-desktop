@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Folder, ChevronRight, ChevronDown, Download, Upload, Refresh, File as FileIcon } from "lucide-react";
+import { Folder, ChevronRight, ChevronDown, Download, Upload, RefreshCw, File as FileIcon } from "lucide-react";
 import { useI18n } from "../../components/useI18n";
 
 type FileNode = {
@@ -225,7 +225,7 @@ function Files(): React.JSX.Element {
             {t("files.upload")}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={load}>
-            <Refresh size={13} />
+            <RefreshCw size={13} />
           </button>
         </div>
       </div>
