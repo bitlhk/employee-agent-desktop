@@ -94,6 +94,7 @@ function Files(): React.JSX.Element {
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [previewContent, setPreviewContent] = useState<string>("");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -101,10 +102,13 @@ function Files(): React.JSX.Element {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const result = await window.hermesAPI.listDesktopFiles();
       setFiles(result.files);
       setProtectedFiles(new Set(result.protectedFiles));
+    } catch (e: any) {
+      setLoadError(String(e?.message || e));
     } finally {
       setLoading(false);
     }
@@ -237,6 +241,10 @@ function Files(): React.JSX.Element {
         onChange={handleFileChange}
         accept=".md,.txt,.csv,.json,.yaml,.yml,.xml,.toml,.ini,.conf,.log,.pdf,.docx,.xls,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.svg,.webp,.html,.htm,.css,.zip,.tar,.gz,.mp3,.wav,.m4a,.aac,.webm,.ogg,.mp4"
       />
+
+      {loadError && (
+        <div className="files-status-bar files-status-error">{loadError}</div>
+      )}
 
       {uploadStatus && (
         <div className={`files-status-bar files-status-${uploadStatus.type}`}>{uploadStatus.msg}</div>
