@@ -425,7 +425,7 @@ function Layout({
 
         {visitedViews.has("memory") && (
           <div style={paneStyle("memory")}>
-            {remoteMode ? (
+            {remoteMode && !enterpriseMode ? (
               <RemoteNotice feature="Memory" />
             ) : (
               <Memory profile={activeProfile} />
