@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import QRCode from "qrcode";
-// qrcode renders entirely locally via toDataURL — no network request to any third party
 import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import BrandLogo from "../../components/common/BrandLogo";
@@ -15,20 +13,8 @@ type PlatformStatus = {
 type BindState =
   | { phase: "idle" }
   | { phase: "loading" }
-  | { phase: "scanning"; qrCode: string; pollToken: string; verificationUri?: string; userCode?: string; pollIntervalMs?: number }
+  | { phase: "scanning"; qrDataUrl: string; pollToken: string; verificationUri?: string; userCode?: string; pollIntervalMs?: number }
   | { phase: "error"; message: string };
-
-function QRCanvas({ data }: { data: string }): React.JSX.Element {
-  const [dataUrl, setDataUrl] = useState("");
-  useEffect(() => {
-    if (!data) return;
-    QRCode.toDataURL(data, { width: 200, margin: 1 })
-      .then(setDataUrl)
-      .catch(() => {});
-  }, [data]);
-  if (!dataUrl) return <div className="settings-qr-img" />;
-  return <img className="settings-qr-img" src={dataUrl} alt="扫码绑定" />;
-}
 
 // ── Enterprise-mode Gateway ──────────────────────────────────────────────────
 
@@ -83,7 +69,7 @@ function EnterpriseGateway(): React.JSX.Element {
     setBindStates((prev) => ({ ...prev, [key]: { phase: "loading" } }));
 
     const result = await window.hermesAPI.enterpriseChannelBegin(key);
-    if (!result.ok || !result.qrCode || !result.pollToken) {
+    if (!result.ok || !result.pollToken) {
       setBindStates((prev) => ({
         ...prev,
         [key]: { phase: "error", message: result.error || "获取二维码失败" },
@@ -91,10 +77,10 @@ function EnterpriseGateway(): React.JSX.Element {
       return;
     }
 
-    const { qrCode, pollToken, verificationUri, userCode, pollIntervalMs } = result;
+    const { qrDataUrl = "", pollToken, verificationUri, userCode, pollIntervalMs } = result;
     setBindStates((prev) => ({
       ...prev,
-      [key]: { phase: "scanning", qrCode, pollToken, verificationUri, userCode, pollIntervalMs },
+      [key]: { phase: "scanning", qrDataUrl, pollToken, verificationUri, userCode, pollIntervalMs },
     }));
 
     // Start polling
@@ -233,7 +219,9 @@ function EnterpriseGateway(): React.JSX.Element {
                 {/* Inline QR code panel */}
                 {isScanning && bindState.phase === "scanning" && (
                   <div className="settings-qr-panel">
-                    <QRCanvas data={bindState.qrCode} />
+                    {bindState.qrDataUrl && (
+                      <img className="settings-qr-img" src={bindState.qrDataUrl} alt="扫码绑定" />
+                    )}
                     <div className="settings-qr-hint">
                       {ch.key === "feishu" || ch.key === "lark"
                         ? "请用飞书扫描二维码完成授权"

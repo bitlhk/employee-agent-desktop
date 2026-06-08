@@ -10,6 +10,7 @@ import {
   session,
 } from "electron";
 import { join, extname } from "path";
+import QRCode from "qrcode";
 import { readdir, readFile } from "fs/promises";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import type { AppUpdater } from "electron-updater";
@@ -1712,7 +1713,13 @@ function setupIPC(): void {
     if (!resp.ok) {
       return { ok: false, error: (body as { error?: string }).error || `HTTP ${resp.status}` };
     }
-    return { ok: true, ...(body as object) };
+    const result = body as { qrCode?: string; pollToken?: string; verificationUri?: string; userCode?: string; pollIntervalMs?: number };
+    // Generate QR data URL in main process (Node.js) — keeps the payload off the network
+    let qrDataUrl = "";
+    if (result.qrCode) {
+      qrDataUrl = await QRCode.toDataURL(result.qrCode, { width: 200, margin: 1 }).catch(() => "");
+    }
+    return { ok: true, ...result, qrDataUrl };
   });
 
   ipcMain.handle("enterprise-channel-poll", async (_event, key: string, pollToken: string) => {

@@ -502,6 +502,7 @@ const hermesAPI = {
   enterpriseChannelBegin: (key: string): Promise<{
     ok: boolean;
     qrCode?: string;
+    qrDataUrl?: string;
     pollToken?: string;
     verificationUri?: string;
     userCode?: string;
