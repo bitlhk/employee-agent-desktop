@@ -12,32 +12,32 @@ interface Suggestion {
 const SUGGESTIONS: Suggestion[] = [
   {
     i18nKey: "chat.suggestionSearch",
-    text: "Search the web for today's top tech news",
+    text: "搜索今天的行业热点新闻",
     Icon: Search,
   },
   {
     i18nKey: "chat.suggestionReminder",
-    text: "Set a reminder to check emails every day at 9 AM",
+    text: "设置每天早上 9 点查看邮件的提醒",
     Icon: Bell,
   },
   {
     i18nKey: "chat.suggestionEmail",
-    text: "Read my latest emails and summarize them",
+    text: "读取我最新的邮件并做简要总结",
     Icon: Mail,
   },
   {
     i18nKey: "chat.suggestionScript",
-    text: "Write a Python script to rename all files in a folder",
+    text: "写一个 Python 脚本批量重命名文件夹中的文件",
     Icon: Code,
   },
   {
     i18nKey: "chat.suggestionSchedule",
-    text: "Schedule a cron job to back up my database every night",
+    text: "创建一个定时任务，每晚自动备份数据库",
     Icon: Clock,
   },
   {
     i18nKey: "chat.suggestionAnalyze",
-    text: "Analyze this CSV file and show key insights",
+    text: "分析这个 CSV 文件并提取关键数据洞察",
     Icon: ChartLine,
   },
 ];

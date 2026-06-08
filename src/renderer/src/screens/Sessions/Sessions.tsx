@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
-import { Plus, Search, X, ChatBubble, Trash } from "../../assets/icons";
+import { Plus, Search, X, ChatBubble, Trash, Pencil } from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
 
 interface CachedSession {
@@ -126,6 +126,14 @@ const SessionCard = memo(function SessionCard({
   onClick,
   onDelete,
   deleteTitle,
+  onRename,
+  renameTitle,
+  isRenaming = false,
+  renameValue = "",
+  onRenameChange,
+  onRenameConfirm,
+  onRenameCancel,
+  renameInputRef,
   selectionMode = false,
   selected = false,
   onToggleSelected,
@@ -138,6 +146,14 @@ const SessionCard = memo(function SessionCard({
   // When provided, renders a trash icon button on the card. Closes #408.
   onDelete?: (id: string) => void;
   deleteTitle?: string;
+  onRename?: (id: string, title: string) => void;
+  renameTitle?: string;
+  isRenaming?: boolean;
+  renameValue?: string;
+  onRenameChange?: (value: string) => void;
+  onRenameConfirm?: () => void;
+  onRenameCancel?: () => void;
+  renameInputRef?: React.RefObject<HTMLInputElement | null>;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelected?: (id: string) => void;
@@ -184,9 +200,31 @@ const SessionCard = memo(function SessionCard({
             />
           </label>
         )}
-        <span className="sessions-card-title">
-          {session.title || "New conversation"}
-        </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            className="sessions-card-rename-input"
+            type="text"
+            value={renameValue}
+            onChange={(e) => onRenameChange?.(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onRenameConfirm?.();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                onRenameCancel?.();
+              }
+            }}
+            onBlur={() => onRenameConfirm?.()}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="sessions-card-title">
+            {session.title || "New conversation"}
+          </span>
+        )}
         <span className="sessions-card-time">
           {showFullDate
             ? formatFullDate(session.startedAt)
@@ -205,7 +243,22 @@ const SessionCard = memo(function SessionCard({
             {formatModel(session.model)}
           </span>
         )}
-        {!selectionMode && onDelete && (
+        {!selectionMode && onRename && !isRenaming && (
+          <button
+            type="button"
+            className="sessions-card-rename"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRename(session.id, session.title);
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            title={renameTitle}
+            aria-label={renameTitle}
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+        {!selectionMode && onDelete && !isRenaming && (
           <button
             type="button"
             className="sessions-card-delete"
@@ -265,6 +318,21 @@ function Sessions({
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestId = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Rename state
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const editingSessionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    editingSessionIdRef.current = editingSessionId;
+  }, [editingSessionId]);
+
+  useEffect(() => {
+    if (!readOnly) return;
+    setIsSelectionMode(false);
+    setSelectedSessionIds(new Set());
+  }, [readOnly]);
 
   // Quiet re-sync from state.db — refreshes the list WITHOUT flipping the
   // loading state, so it can run on a timer or on focus with no spinner flash.
@@ -299,6 +367,76 @@ function Sessions({
   const handleDelete = useCallback((sessionId: string): void => {
     setPendingDeleteSessionId(sessionId);
   }, []);
+
+  const startRename = useCallback(
+    (sessionId: string, currentTitle: string): void => {
+      setEditingSessionId(sessionId);
+      setEditingTitle(currentTitle || "");
+      // Focus the input on the next tick after render
+      setTimeout(() => {
+        renameInputRef.current?.focus();
+        renameInputRef.current?.select();
+      }, 0);
+    },
+    [],
+  );
+
+  const cancelRename = useCallback((): void => {
+    setEditingSessionId(null);
+    setEditingTitle("");
+  }, []);
+
+  const confirmRename = useCallback(
+    async (sessionId: string, newTitle: string): Promise<void> => {
+      const trimmed = newTitle.trim();
+      if (!trimmed) {
+        cancelRename();
+        return;
+      }
+      // Capture old titles so we can roll back on failure.
+      let oldSessionTitle = "";
+      let oldSearchResultTitle = "";
+      // Optimistic update
+      setSessions((prev) => {
+        oldSessionTitle = prev.find((s) => s.id === sessionId)?.title ?? "";
+        return prev.map((s) =>
+          s.id === sessionId ? { ...s, title: trimmed } : s,
+        );
+      });
+      setSearchResults((prev) => {
+        oldSearchResultTitle =
+          prev.find((r) => r.sessionId === sessionId)?.title ?? "";
+        return prev.map((r) =>
+          r.sessionId === sessionId ? { ...r, title: trimmed } : r,
+        );
+      });
+      try {
+        await window.hermesAPI.updateSessionTitle(sessionId, trimmed);
+      } catch (err) {
+        console.error("Failed to rename session", sessionId, err);
+        // Rollback optimistic update
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === sessionId ? { ...s, title: oldSessionTitle } : s,
+          ),
+        );
+        setSearchResults((prev) =>
+          prev.map((r) =>
+            r.sessionId === sessionId
+              ? { ...r, title: oldSearchResultTitle }
+              : r,
+          ),
+        );
+      }
+      // Guard: only clear editing state if the user hasn't started editing
+      // a different session while this request was in flight.
+      if (editingSessionIdRef.current === sessionId) {
+        setEditingSessionId(null);
+        setEditingTitle("");
+      }
+    },
+    [cancelRename],
+  );
 
   const cancelDelete = useCallback((): void => {
     if (deletingSessionId) return;
@@ -478,12 +616,6 @@ function Sessions({
     visibleSessionIds.length > 0 &&
     visibleSessionIds.every((id) => selectedSessionIds.has(id));
 
-  useEffect(() => {
-    if (!readOnly) return;
-    setIsSelectionMode(false);
-    setSelectedSessionIds(new Set());
-  }, [readOnly]);
-
   const toggleVisibleSelection = useCallback((): void => {
     setSelectedSessionIds((prev) => {
       const next = new Set(prev);
@@ -503,6 +635,7 @@ function Sessions({
       const next = new Set(Array.from(prev).filter((id) => visibleIds.has(id)));
       return next.size === prev.size ? prev : next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelectionMode, visibleSessionIdKey]);
 
   return (
@@ -654,12 +787,34 @@ function Sessions({
                         />
                       </label>
                     )}
-                    <span className="sessions-card-title">
-                      {r.title ||
-                        (snippetTitle
-                          ? highlightSnippet(snippetTitle)
-                          : fallbackTitle)}
-                    </span>
+                    {editingSessionId === r.sessionId ? (
+                      <input
+                        ref={renameInputRef}
+                        className="sessions-card-rename-input"
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            confirmRename(r.sessionId, editingTitle);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelRename();
+                          }
+                        }}
+                        onBlur={() => confirmRename(r.sessionId, editingTitle)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="sessions-card-title">
+                        {r.title ||
+                          (snippetTitle
+                            ? highlightSnippet(snippetTitle)
+                            : fallbackTitle)}
+                      </span>
+                    )}
                     <span className="sessions-card-time">
                       {formatFullDate(r.startedAt)}
                     </span>
@@ -684,7 +839,22 @@ function Sessions({
                         {formatModel(r.model)}
                       </span>
                     )}
-                    {!readOnly && !isSelectionMode && (
+                    {!isSelectionMode && editingSessionId !== r.sessionId && (
+                      <button
+                        type="button"
+                        className="sessions-card-rename"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startRename(r.sessionId, r.title || "");
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title={t("sessions.rename")}
+                        aria-label={t("sessions.rename")}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    {!isSelectionMode && editingSessionId !== r.sessionId && (
                       <button
                         type="button"
                         className="sessions-card-delete"
@@ -729,6 +899,14 @@ function Sessions({
                   onClick={() => onResumeSession(s.id)}
                   onDelete={readOnly ? undefined : handleDelete}
                   deleteTitle={t("sessions.delete")}
+                  onRename={readOnly ? undefined : startRename}
+                  renameTitle={t("sessions.rename")}
+                  isRenaming={editingSessionId === s.id}
+                  renameValue={editingTitle}
+                  onRenameChange={setEditingTitle}
+                  onRenameConfirm={() => confirmRename(s.id, editingTitle)}
+                  onRenameCancel={cancelRename}
+                  renameInputRef={renameInputRef}
                   selectionMode={isSelectionMode}
                   selected={selectedSessionIds.has(s.id)}
                   onToggleSelected={toggleSessionSelected}
