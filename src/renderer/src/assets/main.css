@@ -4717,6 +4717,25 @@ body {
   margin-bottom: 0;
 }
 
+.settings-platform-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.settings-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-confirm-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* Theme select in settings */
 .settings-theme-options {
   display: flex;

@@ -1695,6 +1695,26 @@ function setupIPC(): void {
       ]),
     );
   });
+  ipcMain.handle("unbind-enterprise-channel", async (_event, key: string) => {
+    const conn = getConnectionConfig();
+    const token = conn.apiKey;
+    const resp = await fetch(
+      `${enterpriseControlUrl()}/api/desktop/channels/${encodeURIComponent(key)}/unbind`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+      return { ok: false, error: (body as { error?: string }).error || `HTTP ${resp.status}` };
+    }
+    return { ok: true };
+  });
+
   ipcMain.handle(
     "set-platform-enabled",
     async (_event, platform: string, enabled: boolean, profile?: string) => {

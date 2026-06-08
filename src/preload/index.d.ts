@@ -398,6 +398,7 @@ interface HermesAPI {
     enabled: boolean,
     profile?: string,
   ) => Promise<boolean>;
+  unbindEnterpriseChannel: (key: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Sessions
   listSessions: (

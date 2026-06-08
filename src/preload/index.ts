@@ -499,6 +499,9 @@ const hermesAPI = {
   ): Promise<boolean> =>
     ipcRenderer.invoke("set-platform-enabled", platform, enabled, profile),
 
+  unbindEnterpriseChannel: (key: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("unbind-enterprise-channel", key),
+
   // Sessions
   listSessions: (
     limit?: number,
