@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import QRCode from "qrcode";
 import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import BrandLogo from "../../components/common/BrandLogo";
@@ -16,10 +17,14 @@ type BindState =
   | { phase: "scanning"; qrCode: string; pollToken: string; verificationUri?: string; userCode?: string; pollIntervalMs?: number }
   | { phase: "error"; message: string };
 
-const QR_SERVICE = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=";
-
-function qrImgUrl(data: string): string {
-  return QR_SERVICE + encodeURIComponent(data);
+function QRCanvas({ data }: { data: string }): React.JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (canvasRef.current && data) {
+      QRCode.toCanvas(canvasRef.current, data, { width: 200, margin: 1 }).catch(() => {});
+    }
+  }, [data]);
+  return <canvas ref={canvasRef} className="settings-qr-img" />;
 }
 
 // ── Enterprise-mode Gateway ──────────────────────────────────────────────────
@@ -225,11 +230,7 @@ function EnterpriseGateway(): React.JSX.Element {
                 {/* Inline QR code panel */}
                 {isScanning && bindState.phase === "scanning" && (
                   <div className="settings-qr-panel">
-                    <img
-                      className="settings-qr-img"
-                      src={qrImgUrl(bindState.qrCode)}
-                      alt={`${ch.label || ch.key}扫码绑定`}
-                    />
+                    <QRCanvas data={bindState.qrCode} />
                     <div className="settings-qr-hint">
                       {ch.key === "feishu" || ch.key === "lark"
                         ? "请用飞书扫描二维码完成授权"
