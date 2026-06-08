@@ -83,6 +83,7 @@ const ENTERPRISE_NAV_ITEMS: {
   { view: "sessions", icon: Clock, labelKey: "navigation.sessions" },
   { view: "discover", icon: Compass, labelKey: "navigation.discover" },
   { view: "schedules", icon: Timer, labelKey: "navigation.schedules" },
+  { view: "memory", icon: Brain, labelKey: "navigation.memory" },
   { view: "gateway", icon: Signal, labelKey: "navigation.gateway" },
   { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
 ];

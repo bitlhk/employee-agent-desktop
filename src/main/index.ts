@@ -1840,7 +1840,9 @@ function setupIPC(): void {
   });
 
   // Memory
-  ipcMain.handle("read-memory", (_event, profile?: string) => {
+  ipcMain.handle("read-memory", async (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection())
+      return fetchEnterpriseJson("/api/desktop/memory/read");
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh)
       return sshReadMemory(conn.ssh, profile);
@@ -1848,7 +1850,15 @@ function setupIPC(): void {
   });
   ipcMain.handle(
     "add-memory-entry",
-    (_event, content: string, profile?: string) => {
+    async (_event, content: string, profile?: string) => {
+      if (isEnterpriseOpenClawConnection()) {
+        const conn = getConnectionConfig(); const token = conn.apiKey;
+        const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/memory/entry/add`, {
+          method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ content }),
+        });
+        return resp.json().catch(() => ({ success: false }));
+      }
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh)
         return sshAddMemoryEntry(conn.ssh, content, profile);
@@ -1857,7 +1867,15 @@ function setupIPC(): void {
   );
   ipcMain.handle(
     "update-memory-entry",
-    (_event, index: number, content: string, profile?: string) => {
+    async (_event, index: number, content: string, profile?: string) => {
+      if (isEnterpriseOpenClawConnection()) {
+        const conn = getConnectionConfig(); const token = conn.apiKey;
+        const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/memory/entry/update`, {
+          method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ index, content }),
+        });
+        return resp.json().catch(() => ({ success: false }));
+      }
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh)
         return sshUpdateMemoryEntry(conn.ssh, index, content, profile);
@@ -1866,7 +1884,15 @@ function setupIPC(): void {
   );
   ipcMain.handle(
     "remove-memory-entry",
-    (_event, index: number, profile?: string) => {
+    async (_event, index: number, profile?: string) => {
+      if (isEnterpriseOpenClawConnection()) {
+        const conn = getConnectionConfig(); const token = conn.apiKey;
+        const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/memory/entry/remove`, {
+          method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ index }),
+        });
+        return resp.ok;
+      }
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh)
         return sshRemoveMemoryEntry(conn.ssh, index, profile);
@@ -1875,7 +1901,15 @@ function setupIPC(): void {
   );
   ipcMain.handle(
     "write-user-profile",
-    (_event, content: string, profile?: string) => {
+    async (_event, content: string, profile?: string) => {
+      if (isEnterpriseOpenClawConnection()) {
+        const conn = getConnectionConfig(); const token = conn.apiKey;
+        const resp = await fetch(`${enterpriseControlUrl()}/api/desktop/memory/profile`, {
+          method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ content }),
+        });
+        return resp.json().catch(() => ({ success: false }));
+      }
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh)
         return sshWriteUserProfile(conn.ssh, content, profile);
@@ -2413,6 +2447,7 @@ function setupIPC(): void {
 
   // Memory providers
   ipcMain.handle("discover-memory-providers", (_event, profile?: string) => {
+    if (isEnterpriseOpenClawConnection()) return [];
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh)
       return sshDiscoverMemoryProviders(conn.ssh, profile);
