@@ -13,6 +13,23 @@ import {
 import { getConnectionConfig } from "./config";
 import { HIDDEN_SUBPROCESS_OPTIONS } from "./process-options";
 
+function isEnterpriseMode(): boolean {
+  const conn = getConnectionConfig();
+  return conn.mode === "remote" && Boolean(conn.openClawDirect);
+}
+
+async function enterpriseCronFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const conn = getConnectionConfig();
+  let baseUrl = conn.remoteUrl || "";
+  try { baseUrl = new URL(baseUrl).origin; } catch { /* keep as-is */ }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(conn.apiKey ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
+    ...((init.headers as Record<string, string>) || {}),
+  };
+  return fetch(`${baseUrl}${path}`, { ...init, headers });
+}
+
 export interface CronJob {
   id: string;
   name: string;
@@ -137,6 +154,16 @@ export async function listCronJobs(
   includeDisabled = true,
   profile?: string,
 ): Promise<CronJob[]> {
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/list");
+      if (!res.ok) { console.error("[CRON] enterprise list failed:", res.status); return []; }
+      const body = (await res.json()) as { jobs?: Record<string, unknown>[] };
+      const raw = body.jobs || [];
+      return raw.map((j) => normalizeJob(j)).filter((j): j is CronJob => j !== null)
+        .filter((j) => includeDisabled || j.enabled);
+    } catch (err) { console.error("[CRON] enterprise list error:", err); return []; }
+  }
   if (isRemoteMode()) {
     try {
       const qs = includeDisabled ? "?include_disabled=true" : "";
@@ -228,6 +255,19 @@ export async function createCronJob(
   deliver?: string,
   profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/add", {
+        method: "POST",
+        body: JSON.stringify({ schedule, prompt: prompt || "", name: name || "", deliver: deliver || "local" }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: body.error || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: (err as Error).message }; }
+  }
   if (isRemoteMode()) {
     try {
       const res = await remoteFetch("/api/jobs", {
@@ -263,6 +303,16 @@ export async function removeCronJob(
   profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!jobId) return { success: false, error: "Missing job ID" };
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/remove", { method: "POST", body: JSON.stringify({ id: jobId }) });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: body.error || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: (err as Error).message }; }
+  }
   if (isRemoteMode()) {
     try {
       const res = await remoteFetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
@@ -303,6 +353,16 @@ export async function pauseCronJob(
   profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!jobId) return { success: false, error: "Missing job ID" };
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/pause", { method: "POST", body: JSON.stringify({ id: jobId }) });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: body.error || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: (err as Error).message }; }
+  }
   if (isRemoteMode()) return remoteJobAction(jobId, "pause");
   const result = await runCronCommand(["pause", jobId], profile);
   return { success: result.success, error: result.error };
@@ -313,6 +373,16 @@ export async function resumeCronJob(
   profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!jobId) return { success: false, error: "Missing job ID" };
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/resume", { method: "POST", body: JSON.stringify({ id: jobId }) });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: body.error || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: (err as Error).message }; }
+  }
   if (isRemoteMode()) return remoteJobAction(jobId, "resume");
   const result = await runCronCommand(["resume", jobId], profile);
   return { success: result.success, error: result.error };
@@ -323,6 +393,16 @@ export async function triggerCronJob(
   profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!jobId) return { success: false, error: "Missing job ID" };
+  if (isEnterpriseMode()) {
+    try {
+      const res = await enterpriseCronFetch("/api/desktop/cron/trigger", { method: "POST", body: JSON.stringify({ id: jobId }) });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { success: false, error: body.error || `HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: (err as Error).message }; }
+  }
   if (isRemoteMode()) return remoteJobAction(jobId, "run");
   const result = await runCronCommand(["run", jobId], profile);
   return { success: result.success, error: result.error };
