@@ -494,9 +494,16 @@ async function enterpriseModels(): Promise<EnterpriseModels> {
 async function enterpriseChannels(): Promise<
   Record<string, EnterpriseChannelStatus>
 > {
-  const data = await fetchEnterpriseJson<{ channels?: EnterpriseChannelStatus[] }>(
-    "/api/desktop/channels",
-  );
+  let data: { channels?: EnterpriseChannelStatus[] };
+  try {
+    data = await fetchEnterpriseJson<{ channels?: EnterpriseChannelStatus[] }>(
+      "/api/desktop/channels",
+    );
+  } catch (err) {
+    // Server may not have deployed the channels endpoint yet — degrade gracefully.
+    if (err instanceof Error && err.message.includes("HTTP 404")) return {};
+    throw err;
+  }
   const result: Record<string, EnterpriseChannelStatus> = {};
   for (const channel of data.channels || []) {
     if (channel?.key) result[channel.key] = channel;
