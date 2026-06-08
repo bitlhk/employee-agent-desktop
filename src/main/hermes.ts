@@ -23,6 +23,7 @@ import {
 import {
   getApiServerKey,
   getConnectionConfig,
+  getConfigValue,
   getOpenClawAgentId,
   getModelConfig,
   isOpenClawConnection,
@@ -635,6 +636,25 @@ platforms:
  * Exported so we can unit-test the field-extraction without booting
  * the whole HTTP path. (#352)
  */
+type ReasoningEffortValue =
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | null;
+
+function reasoningEffortForProfile(profile?: string): ReasoningEffortValue {
+  const value = (getConfigValue("agent.reasoning_effort", profile) || "")
+    .trim()
+    .toLowerCase();
+  return (["minimal", "low", "medium", "high", "xhigh"] as const).includes(
+    value as ReasoningEffortValue & string,
+  )
+    ? (value as ReasoningEffortValue)
+    : null;
+}
+
 export function extractReasoningDelta(delta: unknown): string {
   if (!delta || typeof delta !== "object") return "";
   const d = delta as Record<string, unknown>;
@@ -798,6 +818,7 @@ function sendMessageViaApi(
   const ctxSystem = contextFolderSystemMessage(contextFolder);
   if (ctxSystem) messages.unshift(ctxSystem);
 
+  const reasoningEffort = reasoningEffortForProfile(profile);
   const body = JSON.stringify({
     model: openClawMode ? "openclaw" : mc?.model || "hermes-agent",
     messages,
@@ -805,6 +826,7 @@ function sendMessageViaApi(
     ...(!openClawMode && _resumeSessionId
       ? { session_id: _resumeSessionId }
       : {}),
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
   });
 
   // Encode the body up-front into a Buffer so we can:

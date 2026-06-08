@@ -3873,6 +3873,82 @@ body {
   border-bottom: none;
 }
 
+/* ── Reasoning group (thinking block collapsed/expanded) ─────────────── */
+.chat-message-history > .chat-reasoning-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-reasoning-group {
+  width: 100%;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.18));
+  border-radius: 10px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.chat-reasoning-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text-secondary);
+}
+
+.chat-reasoning-group-summary:hover {
+  background: var(--hover, rgba(127, 127, 127, 0.06));
+}
+
+.chat-reasoning-group-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+}
+
+.chat-reasoning-group-chevron--open {
+  transform: rotate(90deg);
+}
+
+.chat-reasoning-group-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.chat-reasoning-group-spinner {
+  flex-shrink: 0;
+  color: var(--info, #4aa8ff);
+  animation: spin 0.8s linear infinite;
+}
+
+.chat-reasoning-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.chat-reasoning-group-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.chat-reasoning-group-body {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border, rgba(127, 127, 127, 0.12));
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .chat-tool-item-header {
   display: flex;
   align-items: center;
@@ -4136,6 +4212,123 @@ body {
 .chat-model-custom-input:focus {
   outline: none;
   border-color: var(--border-focus);
+}
+
+/* ── Reasoning Effort Picker ─────────────────────────────────────────── */
+.chat-reasoning-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.chat-reasoning-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all var(--transition);
+}
+
+.chat-reasoning-trigger:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.chat-reasoning-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-reasoning-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  width: 260px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  padding: 6px;
+}
+
+.chat-reasoning-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 8px 4px;
+}
+
+.chat-reasoning-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 8px 6px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.chat-reasoning-error {
+  font-size: 11px;
+  color: var(--danger, #e06c75);
+  padding: 4px 8px;
+}
+
+.chat-reasoning-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.chat-reasoning-option:hover {
+  background: var(--bg-hover);
+}
+
+.chat-reasoning-option.active {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+
+.chat-reasoning-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.chat-reasoning-option-label {
+  font-weight: 500;
+}
+
+.chat-reasoning-option-description {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.chat-reasoning-check {
+  flex-shrink: 0;
+  color: var(--accent-text);
 }
 
 /* ========================================================================
@@ -5494,6 +5687,50 @@ body {
   background: var(--bg-tertiary);
   color: var(--danger, #e06c75);
   opacity: 1;
+}
+
+.sessions-card-rename {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--transition),
+    background var(--transition),
+    color var(--transition);
+}
+
+.sessions-card:hover .sessions-card-rename {
+  opacity: 0.45;
+}
+
+.sessions-card-rename:hover,
+.sessions-card-rename:focus-visible {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.sessions-card-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--border-focus);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
 }
 
 .sessions-confirm-overlay {
