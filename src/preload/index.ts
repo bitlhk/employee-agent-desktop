@@ -499,6 +499,23 @@ const hermesAPI = {
   ): Promise<boolean> =>
     ipcRenderer.invoke("set-platform-enabled", platform, enabled, profile),
 
+  enterpriseChannelBegin: (key: string): Promise<{
+    ok: boolean;
+    qrCode?: string;
+    pollToken?: string;
+    verificationUri?: string;
+    userCode?: string;
+    pollIntervalMs?: number;
+    error?: string;
+  }> => ipcRenderer.invoke("enterprise-channel-begin", key),
+
+  enterpriseChannelPoll: (key: string, pollToken: string): Promise<{
+    status: "wait" | "confirmed" | "expired" | "pending" | "scanned" | "error";
+    targetLabel?: string;
+    pollToken?: string;
+    error?: string;
+  }> => ipcRenderer.invoke("enterprise-channel-poll", key, pollToken),
+
   unbindEnterpriseChannel: (key: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("unbind-enterprise-channel", key),
 

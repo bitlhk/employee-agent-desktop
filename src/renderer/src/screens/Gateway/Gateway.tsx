@@ -10,6 +10,18 @@ type PlatformStatus = {
   detail?: string;
 };
 
+type BindState =
+  | { phase: "idle" }
+  | { phase: "loading" }
+  | { phase: "scanning"; qrCode: string; pollToken: string; verificationUri?: string; userCode?: string; pollIntervalMs?: number }
+  | { phase: "error"; message: string };
+
+const QR_SERVICE = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=";
+
+function qrImgUrl(data: string): string {
+  return QR_SERVICE + encodeURIComponent(data);
+}
+
 // ── Enterprise-mode Gateway ──────────────────────────────────────────────────
 
 function statusLabel(status: PlatformStatus["status"]): string {
@@ -19,21 +31,18 @@ function statusLabel(status: PlatformStatus["status"]): string {
   return "未配置";
 }
 
-function EnterpriseGateway({ remoteUrl }: { remoteUrl: string }): React.JSX.Element {
+function EnterpriseGateway(): React.JSX.Element {
   const [channels, setChannels] = useState<PlatformStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unbinding, setUnbinding] = useState<string | null>(null);
+  const [bindStates, setBindStates] = useState<Record<string, BindState>>({});
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [unbinding, setUnbinding] = useState<string | null>(null);
+  const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   const loadChannels = useCallback(async () => {
     try {
       const statuses = await window.hermesAPI.getPlatformStatus();
-      setChannels(
-        Object.values(statuses).length > 0
-          ? Object.values(statuses)
-          : [],
-      );
+      setChannels(Object.values(statuses));
     } catch {
       // keep previous state
     } finally {
@@ -43,34 +52,85 @@ function EnterpriseGateway({ remoteUrl }: { remoteUrl: string }): React.JSX.Elem
 
   useEffect(() => {
     void loadChannels();
-    pollRef.current = setInterval(() => void loadChannels(), 15000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    const t = setInterval(() => void loadChannels(), 15000);
+    return () => clearInterval(t);
   }, [loadChannels]);
+
+  // Stop polling for a channel and clear its timer
+  function stopPoll(key: string): void {
+    if (pollTimers.current[key]) {
+      clearInterval(pollTimers.current[key]);
+      delete pollTimers.current[key];
+    }
+  }
+
+  // Cancel scanning for a channel
+  function cancelBind(key: string): void {
+    stopPoll(key);
+    setBindStates((prev) => ({ ...prev, [key]: { phase: "idle" } }));
+  }
+
+  async function handleBind(key: string): Promise<void> {
+    stopPoll(key);
+    setBindStates((prev) => ({ ...prev, [key]: { phase: "loading" } }));
+
+    const result = await window.hermesAPI.enterpriseChannelBegin(key);
+    if (!result.ok || !result.qrCode || !result.pollToken) {
+      setBindStates((prev) => ({
+        ...prev,
+        [key]: { phase: "error", message: result.error || "获取二维码失败" },
+      }));
+      return;
+    }
+
+    const { qrCode, pollToken, verificationUri, userCode, pollIntervalMs } = result;
+    setBindStates((prev) => ({
+      ...prev,
+      [key]: { phase: "scanning", qrCode, pollToken, verificationUri, userCode, pollIntervalMs },
+    }));
+
+    // Start polling
+    const intervalMs = pollIntervalMs || 2000;
+    let currentPollToken = pollToken;
+
+    pollTimers.current[key] = setInterval(async () => {
+      try {
+        const poll = await window.hermesAPI.enterpriseChannelPoll(key, currentPollToken);
+        // Update pollToken if rotated (feishu does this)
+        if (poll.pollToken) currentPollToken = poll.pollToken;
+
+        if (poll.status === "confirmed") {
+          stopPoll(key);
+          setBindStates((prev) => ({ ...prev, [key]: { phase: "idle" } }));
+          await loadChannels();
+        } else if (poll.status === "expired") {
+          stopPoll(key);
+          setBindStates((prev) => ({ ...prev, [key]: { phase: "error", message: "二维码已过期，请重新获取" } }));
+        }
+        // "wait" / "pending" / "scanned" — keep polling
+      } catch {
+        // network hiccup, keep polling
+      }
+    }, intervalMs);
+  }
 
   async function handleUnbind(key: string): Promise<void> {
     setConfirmKey(null);
     setUnbinding(key);
     try {
-      const result = await window.hermesAPI.unbindEnterpriseChannel(key);
-      if (!result.ok) {
-        console.error("unbind failed", result.error);
-      }
+      await window.hermesAPI.unbindEnterpriseChannel(key);
       await loadChannels();
     } finally {
       setUnbinding(null);
     }
   }
 
-  function handleBind(): void {
-    try {
-      const { origin } = new URL(remoteUrl);
-      void window.hermesAPI.openExternal(`${origin}/`);
-    } catch {
-      void window.hermesAPI.openExternal(remoteUrl);
-    }
-  }
+  // Clean up all poll timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(pollTimers.current).forEach(clearInterval);
+    };
+  }, []);
 
   return (
     <div className="settings-container">
@@ -85,66 +145,135 @@ function EnterpriseGateway({ remoteUrl }: { remoteUrl: string }): React.JSX.Elem
       {channels.length > 0 && (
         <div className="settings-section">
           <div className="settings-section-title">绑定状态</div>
-          {channels.map((ch) => (
-            <div key={ch.key} className="settings-platform-card">
-              <div className="settings-platform-header">
-                <div className="settings-platform-left">
-                  <BrandLogo provider={ch.key} size={28} />
-                  <div className="settings-platform-info">
-                    <div className="settings-platform-title-row">
-                      <span className="settings-platform-label">
-                        {ch.label || ch.key}
-                      </span>
-                      <span className={`settings-platform-status ${ch.status}`}>
-                        {statusLabel(ch.status)}
-                      </span>
+          {channels.map((ch) => {
+            const bindState: BindState = bindStates[ch.key] ?? { phase: "idle" };
+            const isScanning = bindState.phase === "scanning";
+
+            return (
+              <div key={ch.key} className="settings-platform-card">
+                <div className="settings-platform-header">
+                  <div className="settings-platform-left">
+                    <BrandLogo provider={ch.key} size={28} />
+                    <div className="settings-platform-info">
+                      <div className="settings-platform-title-row">
+                        <span className="settings-platform-label">
+                          {ch.label || ch.key}
+                        </span>
+                        <span className={`settings-platform-status ${ch.status}`}>
+                          {statusLabel(ch.status)}
+                        </span>
+                      </div>
+                      {ch.detail && (
+                        <span className="settings-platform-desc">{ch.detail}</span>
+                      )}
                     </div>
-                    {ch.detail && (
-                      <span className="settings-platform-desc">{ch.detail}</span>
+                  </div>
+
+                  <div className="settings-platform-actions">
+                    {/* Bound: show 解绑 with confirm */}
+                    {ch.status === "connected" && !isScanning && (
+                      confirmKey === ch.key ? (
+                        <div className="settings-confirm-row">
+                          <span className="settings-confirm-text">确认解绑？</span>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={unbinding === ch.key}
+                            onClick={() => void handleUnbind(ch.key)}
+                          >
+                            {unbinding === ch.key ? "解绑中..." : "确认"}
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setConfirmKey(null)}
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setConfirmKey(ch.key)}
+                        >
+                          解绑
+                        </button>
+                      )
+                    )}
+
+                    {/* Unbound: show 扫码绑定 or loading or cancel */}
+                    {(ch.status === "not_connected" || ch.status === "not_configured") && (
+                      bindState.phase === "loading" ? (
+                        <span className="settings-field-hint">获取中...</span>
+                      ) : isScanning ? (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => cancelBind(ch.key)}
+                        >
+                          取消
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => void handleBind(ch.key)}
+                        >
+                          扫码绑定
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
 
-                <div className="settings-platform-actions">
-                  {ch.status === "connected" && (
-                    confirmKey === ch.key ? (
-                      <div className="settings-confirm-row">
-                        <span className="settings-confirm-text">确认解绑？</span>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={unbinding === ch.key}
-                          onClick={() => void handleUnbind(ch.key)}
+                {/* Inline QR code panel */}
+                {isScanning && bindState.phase === "scanning" && (
+                  <div className="settings-qr-panel">
+                    <img
+                      className="settings-qr-img"
+                      src={qrImgUrl(bindState.qrCode)}
+                      alt={`${ch.label || ch.key}扫码绑定`}
+                    />
+                    <div className="settings-qr-hint">
+                      {ch.key === "feishu" || ch.key === "lark"
+                        ? "请用飞书扫描二维码完成授权"
+                        : "请用微信扫描二维码"}
+                    </div>
+                    {bindState.verificationUri && (
+                      <div className="settings-qr-hint">
+                        无法扫码？
+                        <a
+                          className="settings-qr-link"
+                          href={bindState.verificationUri}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void window.hermesAPI.openExternal(bindState.verificationUri!);
+                          }}
                         >
-                          {unbinding === ch.key ? "解绑中..." : "确认"}
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setConfirmKey(null)}
-                        >
-                          取消
-                        </button>
+                          打开授权页
+                        </a>
+                        {bindState.userCode ? `，输入 ${bindState.userCode}` : ""}
                       </div>
-                    ) : (
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setConfirmKey(ch.key)}
-                      >
-                        解绑
-                      </button>
-                    )
-                  )}
-                  {(ch.status === "not_connected" || ch.status === "not_configured") && (
+                    )}
+                  </div>
+                )}
+
+                {/* Error state */}
+                {bindState.phase === "error" && (
+                  <div className="settings-qr-panel">
+                    <div className="settings-qr-hint" style={{ color: "var(--error)" }}>
+                      {bindState.message}
+                    </div>
                     <button
-                      className="btn btn-primary btn-sm"
-                      onClick={handleBind}
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginTop: 8 }}
+                      onClick={() => setBindStates((prev) => ({ ...prev, [ch.key]: { phase: "idle" } }))}
                     >
-                      扫码绑定
+                      重试
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -315,9 +444,7 @@ function LocalGateway({ profile }: { profile?: string }): React.JSX.Element {
                       <span className="settings-platform-label">
                         {status.label || t(platform.label)}
                       </span>
-                      <span
-                        className={`settings-platform-status ${status.status}`}
-                      >
+                      <span className={`settings-platform-status ${status.status}`}>
                         {platformStatusLabel(status)}
                       </span>
                     </div>
@@ -435,21 +562,16 @@ function LocalGateway({ profile }: { profile?: string }): React.JSX.Element {
 // ── Root dispatcher ──────────────────────────────────────────────────────────
 
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
-  const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
-  const [enterpriseMode, setEnterpriseMode] = useState(false);
+  const [enterpriseMode, setEnterpriseMode] = useState<boolean | null>(null);
 
   useEffect(() => {
     void window.hermesAPI.getConnectionConfig().then((config) => {
-      const isEnterprise = config.mode === "remote" && config.openClawDirect;
-      setEnterpriseMode(isEnterprise);
-      setRemoteUrl(isEnterprise ? config.remoteUrl || "" : null);
+      setEnterpriseMode(config.mode === "remote" && !!config.openClawDirect);
     });
   }, []);
 
-  if (enterpriseMode && remoteUrl !== null) {
-    return <EnterpriseGateway remoteUrl={remoteUrl} />;
-  }
-
+  if (enterpriseMode === null) return <></>;
+  if (enterpriseMode) return <EnterpriseGateway />;
   return <LocalGateway profile={profile} />;
 }
 

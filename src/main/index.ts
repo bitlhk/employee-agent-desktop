@@ -1695,6 +1695,44 @@ function setupIPC(): void {
       ]),
     );
   });
+  ipcMain.handle("enterprise-channel-begin", async (_event, key: string) => {
+    const conn = getConnectionConfig();
+    const token = conn.apiKey;
+    const resp = await fetch(
+      `${enterpriseControlUrl()}/api/desktop/channels/${encodeURIComponent(key)}/begin`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+    const body = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+    if (!resp.ok) {
+      return { ok: false, error: (body as { error?: string }).error || `HTTP ${resp.status}` };
+    }
+    return { ok: true, ...(body as object) };
+  });
+
+  ipcMain.handle("enterprise-channel-poll", async (_event, key: string, pollToken: string) => {
+    const conn = getConnectionConfig();
+    const token = conn.apiKey;
+    const resp = await fetch(
+      `${enterpriseControlUrl()}/api/desktop/channels/${encodeURIComponent(key)}/poll`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ pollToken }),
+      },
+    );
+    const body = await resp.json().catch(() => ({ status: "error" }));
+    return body;
+  });
+
   ipcMain.handle("unbind-enterprise-channel", async (_event, key: string) => {
     const conn = getConnectionConfig();
     const token = conn.apiKey;

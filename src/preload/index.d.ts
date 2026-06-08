@@ -398,6 +398,21 @@ interface HermesAPI {
     enabled: boolean,
     profile?: string,
   ) => Promise<boolean>;
+  enterpriseChannelBegin: (key: string) => Promise<{
+    ok: boolean;
+    qrCode?: string;
+    pollToken?: string;
+    verificationUri?: string;
+    userCode?: string;
+    pollIntervalMs?: number;
+    error?: string;
+  }>;
+  enterpriseChannelPoll: (key: string, pollToken: string) => Promise<{
+    status: "wait" | "confirmed" | "expired" | "pending" | "scanned" | "error";
+    targetLabel?: string;
+    pollToken?: string;
+    error?: string;
+  }>;
   unbindEnterpriseChannel: (key: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Sessions
