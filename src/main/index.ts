@@ -2692,16 +2692,25 @@ function setupUpdater(): void {
     mainWindow?.webContents.send("update-downloaded");
   });
 
+  // Only forward errors to the UI when triggered by user action (not the
+  // silent background check). Background 404s (no GitHub release yet) are
+  // expected and should not surface a visible "Update failed" button.
+  let userTriggeredCheck = false;
   autoUpdater.on("error", (err) => {
-    mainWindow?.webContents.send("update-error", err.message);
+    if (userTriggeredCheck) {
+      mainWindow?.webContents.send("update-error", err.message);
+    }
   });
 
   ipcMain.handle("check-for-updates", async () => {
+    userTriggeredCheck = true;
     try {
       const result = await autoUpdater.checkForUpdates();
       return result?.updateInfo?.version || null;
     } catch {
       return null;
+    } finally {
+      userTriggeredCheck = false;
     }
   });
 
