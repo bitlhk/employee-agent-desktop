@@ -1969,7 +1969,7 @@ function setupIPC(): void {
     if (!isEnterpriseOpenClawConnection()) return { ok: false, error: "not in enterprise mode" };
     try {
       const conn = getConnectionConfig();
-      const baseUrl = (() => { try { return new URL(conn.remoteUrl || "").origin; } catch { return conn.remoteUrl || ""; } })();
+      const baseUrl = enterpriseControlUrl();
       const token = conn.apiKey;
       const resp = await fetch(`${baseUrl}/api/desktop/files/download?path=${encodeURIComponent(relPath)}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},

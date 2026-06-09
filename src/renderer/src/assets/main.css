@@ -8948,6 +8948,15 @@ body {
   white-space: nowrap;
 }
 
+.files-row-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+  margin-left: auto;
+}
+
 .files-row-size {
   font-size: 11px;
   color: var(--text-muted);

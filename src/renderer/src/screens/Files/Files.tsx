@@ -27,6 +27,20 @@ function formatSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (diffDays < 7) return `${diffDays}天前`;
+    return d.toLocaleDateString([], { month: "2-digit", day: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
 function FileRow({
   node,
   depth,
@@ -68,6 +82,7 @@ function FileRow({
         {node.name}
         {isProtected && <span className="files-protected-badge">{t("files.protected")}</span>}
       </span>
+      <span className="files-row-date">{formatDate(node.modifiedAt)}</span>
       {!isDir && (
         <>
           <span className="files-row-size">{formatSize(node.size)}</span>
@@ -206,6 +221,9 @@ function Files(): React.JSX.Element {
       if (!p.startsWith(prefix)) return false;
       const rest = p.slice(prefix.length);
       return !rest.includes("/");
+    }).sort((a, b) => {
+      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
     for (const child of children) {
       visibleNodes.push({ node: child, depth });
