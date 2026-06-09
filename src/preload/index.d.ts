@@ -530,6 +530,7 @@ interface HermesAPI {
   readDesktopFile: (relPath: string) => Promise<{ path: string; content: string; size: number; modifiedAt: string } | null>;
   downloadDesktopFile: (relPath: string) => Promise<{ ok: boolean; savedPath?: string; error?: string }>;
   uploadDesktopFile: (filename: string, contentBase64: string, subPath?: string) => Promise<{ ok: boolean; path?: string; size?: number; error?: string }>;
+  deleteDesktopFile: (relPath: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Soul
   readSoul: (profile?: string) => Promise<string>;

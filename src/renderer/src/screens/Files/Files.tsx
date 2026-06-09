@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Folder, ChevronRight, ChevronDown, Download, Upload, RefreshCw, File as FileIcon } from "lucide-react";
+import { Folder, ChevronRight, ChevronDown, Download, Upload, RefreshCw, File as FileIcon, Trash2 } from "lucide-react";
 import { useI18n } from "../../components/useI18n";
 
 type FileNode = {
@@ -49,7 +49,9 @@ function FileRow({
   onToggle,
   onPreview,
   onDownload,
+  onDelete,
   downloading,
+  deleting,
 }: {
   node: FileNode;
   depth: number;
@@ -58,7 +60,9 @@ function FileRow({
   onToggle: () => void;
   onPreview: () => void;
   onDownload: () => void;
+  onDelete: () => void;
   downloading: boolean;
+  deleting: boolean;
 }) {
   const { t } = useI18n();
   const isDir = node.type === "directory";
@@ -83,18 +87,26 @@ function FileRow({
         {isProtected && <span className="files-protected-badge">{t("files.protected")}</span>}
       </span>
       <span className="files-row-date">{formatDate(node.modifiedAt)}</span>
+      {!isDir && <span className="files-row-size">{formatSize(node.size)}</span>}
       {!isDir && (
-        <>
-          <span className="files-row-size">{formatSize(node.size)}</span>
-          <button
-            className="files-row-btn"
-            onClick={onDownload}
-            disabled={downloading}
-            title={t("files.download")}
-          >
-            <Download size={12} />
-          </button>
-        </>
+        <button
+          className="files-row-btn"
+          onClick={onDownload}
+          disabled={downloading}
+          title={t("files.download")}
+        >
+          <Download size={12} />
+        </button>
+      )}
+      {!isProtected && (
+        <button
+          className="files-row-btn files-row-btn-danger"
+          onClick={onDelete}
+          disabled={deleting}
+          title={t("files.delete") || "删除"}
+        >
+          <Trash2 size={12} />
+        </button>
       )}
     </div>
   );
@@ -111,8 +123,10 @@ function Files(): React.JSX.Element {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -143,6 +157,12 @@ function Files(): React.JSX.Element {
     const t = setTimeout(() => setDownloadError(null), 3000);
     return () => clearTimeout(t);
   }, [downloadError]);
+
+  useEffect(() => {
+    if (!deleteError) return;
+    const t = setTimeout(() => setDeleteError(null), 3000);
+    return () => clearTimeout(t);
+  }, [deleteError]);
 
   const handleToggle = (nodePath: string) => {
     setExpanded((prev) => {
@@ -185,6 +205,22 @@ function Files(): React.JSX.Element {
     }
   };
 
+  const handleDelete = async (node: FileNode) => {
+    if (!window.confirm(`确认删除 "${node.name}"？此操作不可恢复。`)) return;
+    setDeletingPath(node.path);
+    setDeleteError(null);
+    try {
+      const result = await window.hermesAPI.deleteDesktopFile(node.path);
+      if (result.ok) {
+        load();
+      } else {
+        setDeleteError(result.error || "删除失败");
+      }
+    } finally {
+      setDeletingPath(null);
+    }
+  };
+
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,7 +259,7 @@ function Files(): React.JSX.Element {
       return !rest.includes("/");
     }).sort((a, b) => {
       if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      return new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime();
     });
     for (const child of children) {
       visibleNodes.push({ node: child, depth });
@@ -270,6 +306,9 @@ function Files(): React.JSX.Element {
       {downloadError && (
         <div className="files-status-bar files-status-error">{downloadError}</div>
       )}
+      {deleteError && (
+        <div className="files-status-bar files-status-error">{deleteError}</div>
+      )}
 
       <div className="files-tree">
         {loading ? (
@@ -289,7 +328,9 @@ function Files(): React.JSX.Element {
               onToggle={() => handleToggle(node.path)}
               onPreview={() => handlePreview(node)}
               onDownload={() => handleDownload(node)}
+              onDelete={() => handleDelete(node)}
               downloading={downloadingPath === node.path}
+              deleting={deletingPath === node.path}
             />
           ))
         )}

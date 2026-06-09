@@ -618,6 +618,8 @@ const hermesAPI = {
     ipcRenderer.invoke("download-desktop-file", relPath),
   uploadDesktopFile: (filename: string, contentBase64: string, subPath?: string): Promise<{ ok: boolean; path?: string; size?: number; error?: string }> =>
     ipcRenderer.invoke("upload-desktop-file", filename, contentBase64, subPath),
+  deleteDesktopFile: (relPath: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("delete-desktop-file", relPath),
 
   // Soul
   readSoul: (profile?: string): Promise<string> =>

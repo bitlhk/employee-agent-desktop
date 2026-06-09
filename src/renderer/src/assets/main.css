@@ -8987,6 +8987,11 @@ body {
   cursor: default;
 }
 
+.files-row-btn-danger:hover:not(:disabled) {
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
+}
+
 .files-empty {
   padding: 48px;
   text-align: center;

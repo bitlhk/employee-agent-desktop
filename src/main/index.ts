@@ -2001,6 +2001,17 @@ function setupIPC(): void {
     return resp.json().catch(() => ({ ok: false, error: "parse error" }));
   });
 
+  ipcMain.handle("delete-desktop-file", async (_event, relPath: string) => {
+    if (!isEnterpriseOpenClawConnection()) return { ok: false, error: "not in enterprise mode" };
+    const conn = getConnectionConfig();
+    const token = conn.apiKey;
+    const resp = await fetch(
+      `${enterpriseControlUrl()}/api/desktop/files/delete?path=${encodeURIComponent(relPath)}`,
+      { method: "DELETE", headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return resp.json().catch(() => ({ ok: false, error: "parse error" }));
+  });
+
   // Tools
   ipcMain.handle("get-toolsets", (_event, profile?: string) => {
     const conn = getConnectionConfig();
