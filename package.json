@@ -1,6 +1,6 @@
 {
   "name": "employee-agent-desktop",
-  "version": "0.5.4",
+  "version": "1.0.0",
   "description": "Employee Agent Desktop — private OpenClaw desktop client",
   "main": "./out/main/index.js",
   "author": "Linggan",
