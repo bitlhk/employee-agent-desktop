@@ -9,7 +9,7 @@ import {
   clipboard,
   session,
 } from "electron";
-import { join, extname } from "path";
+import { join, extname, basename } from "path";
 import { readdir, readFile } from "fs/promises";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import type { AppUpdater } from "electron-updater";
@@ -1977,7 +1977,7 @@ function setupIPC(): void {
       if (!resp.ok) return { ok: false, error: `server error ${resp.status}` };
       const arrayBuf = await resp.arrayBuffer();
       const buf = Buffer.from(arrayBuf);
-      const filename = path.basename(relPath);
+      const filename = basename(relPath);
       const { filePath: savePath } = await dialog.showSaveDialog({ defaultPath: filename });
       if (!savePath) return { ok: false, error: "cancelled" };
       const { writeFileSync: wfs } = await import("fs");
